@@ -1,3 +1,5 @@
+import { boundedInteger } from "./_pagination.js";
+
 export async function getThread(ctx, args = {}) {
   const url = String(args.url || "").trim();
   if (!url) throw new Error("url is required");
@@ -35,8 +37,10 @@ export async function getThread(ctx, args = {}) {
     }
   }
 
-  const maxScrolls = Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20));
+  const maxScrolls = boundedInteger(args.maxScrolls, 5, 20, 0);
   const first = await ctx.runSiteBrowserTool("x-com", "extract_thread", { maxPosts: 100 });
+  if (first.ok === false) return { ...first, requestedUrl: url };
+  const authorHandle = first.author.handle.toLowerCase();
   const seen = new Map();
   for (const post of first.posts || []) {
     if (post.id) seen.set(post.id, post);
@@ -49,9 +53,12 @@ export async function getThread(ctx, args = {}) {
     await ctx.scroll({ dx: 0, dy: 1800 });
     await ctx.wait(1.2);
     const next = await ctx.runSiteBrowserTool("x-com", "extract_thread", { maxPosts: 100 });
+    if (next.ok === false) return { ...next, requestedUrl: url };
     const previousSize = seen.size;
     for (const post of next.posts || []) {
-      if (post.id && !seen.has(post.id)) seen.set(post.id, post);
+      if (post.id && post.handle.toLowerCase() === authorHandle && !seen.has(post.id)) {
+        seen.set(post.id, post);
+      }
     }
     rounds += 1;
     if (seen.size === previousSize) {
@@ -78,6 +85,7 @@ export async function getThread(ctx, args = {}) {
     ...first,
     posts,
     postCount: posts.length,
+    isThread: posts.length > 1,
     totalLoaded: seen.size,
     scrollRounds: rounds,
     requestedUrl: url,

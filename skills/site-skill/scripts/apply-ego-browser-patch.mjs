@@ -75,18 +75,22 @@ async function main() {
 
   const skillFile = path.join(userSkillDir, "SKILL.md");
   let text = await readFile(skillFile, "utf8");
-  if (text.includes("## Site learnings")) {
-    console.log("site learnings section already present");
+  const existingSection = /^## Site learnings[^\n]*\n[\s\S]*?^Site learning tools are read-only by default\.[^\n]*(?:\n|$)/m;
+  if (/^## Site learnings\b/m.test(text)) {
+    if (!existingSection.test(text)) {
+      throw new Error(`cannot locate the end of the existing Site learnings section in ${skillFile}`);
+    }
+    text = text.replace(existingSection, () => siteLearningsSection());
   } else {
     const marker = "# ego-browser\n";
     if (!text.includes(marker)) {
       console.error(`cannot find '# ego-browser' heading in ${skillFile}`);
       process.exit(1);
     }
-    text = text.replace(marker, `${marker}\n${siteLearningsSection()}\n`, 1);
-    await writeFile(skillFile, text, "utf8");
-    console.log(`patched ${skillFile}`);
+    text = text.replace(marker, () => `${marker}\n${siteLearningsSection().trimEnd()}\n`);
   }
+  await writeFile(skillFile, text, "utf8");
+  console.log(`patched ${skillFile}`);
 
   try {
     const info = await lstat(userSkillLink);

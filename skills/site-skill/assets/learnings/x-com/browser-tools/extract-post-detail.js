@@ -14,7 +14,15 @@ async function (args) {
   }
 
   const isGuestLayout = !document.querySelector('article[data-testid="tweet"]');
-  const el = document.querySelector('article[data-testid="tweet"]') || document.querySelector("article");
+  const requestedId = (new URL(currentUrl).pathname.match(/\/status\/(\d+)/) || [])[1] || "";
+  const statusUrlOf = (article) => {
+    const link = article.querySelector("time")?.closest('a[href*="/status/"]') ||
+      [...article.querySelectorAll('a[href*="/status/"]')].find((a) => /\/status\/\d+$/.test(a.href));
+    return link?.href || "";
+  };
+  const articles = [...document.querySelectorAll(isGuestLayout ? "article" : 'article[data-testid="tweet"]')];
+  const el = articles.find((article) =>
+    (statusUrlOf(article).match(/\/status\/(\d+)/) || [])[1] === requestedId);
   if (!el) {
     return {
       ok: false,
@@ -52,10 +60,7 @@ async function (args) {
     handle = texts.find((text) => text.startsWith("@")) || `@${username}`;
   }
 
-  const statusLinks = [...el.querySelectorAll('a[href*="/status/"]')]
-    .map((a) => a.href)
-    .filter((href) => /\/status\/\d+$/.test(href));
-  const statusUrl = statusLinks[0] || currentUrl;
+  const statusUrl = statusUrlOf(el) || currentUrl;
   const statusId = (statusUrl.match(/\/status\/(\d+)/) || [])[1] || "";
 
   let images = [...el.querySelectorAll('[data-testid="tweetPhoto"] img')].map((img) => ({

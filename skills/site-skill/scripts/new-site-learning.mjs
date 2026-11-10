@@ -66,13 +66,17 @@ await mkdir(path.join(siteDir, "browser-tools"), { recursive: true });
 const replacements = {
   "__SITE_ID__": siteId,
   "__SITE_NAME__": siteName,
-  "__DOMAIN__": domains[0],
   "__DATE__": today(),
 };
 
+const manifest = JSON.parse(await readFile(path.join(templates, "manifest.template.json"), "utf8"));
+manifest.id = siteId;
+manifest.name = siteName;
+manifest.domains = domains;
+
 await writeFile(
   path.join(siteDir, "manifest.json"),
-  await render("manifest.template.json", replacements),
+  `${JSON.stringify(manifest, null, 2)}\n`,
   "utf8"
 );
 await writeFile(

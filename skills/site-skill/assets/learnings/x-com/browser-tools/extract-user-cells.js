@@ -18,9 +18,9 @@ async function (args) {
   const cells = [...primary.querySelectorAll('[data-testid="UserCell"]')];
 
   const parse = (cell) => {
-    const anchors = [...cell.querySelectorAll('a[href^="/"]')]
+    const bioCell = cell.cloneNode(true);
+    const anchors = [...bioCell.querySelectorAll('a[href^="/"]')]
       .filter((a) => a.getAttribute("aria-hidden") !== "true");
-    const texts = anchors.map((a) => clean(a.innerText)).filter(Boolean);
     const profileAnchor = anchors.find((a) => {
       const text = clean(a.innerText);
       return text && !text.startsWith("@");
@@ -29,13 +29,11 @@ async function (args) {
     const displayName = clean(profileAnchor?.innerText || "");
     const handle = clean(handleAnchor?.innerText || "");
     const fullText = clean(cell.innerText || "");
-    let bio = fullText;
-    if (displayName) bio = bio.replace(displayName, "");
-    if (handle) bio = bio.replace(handle, "");
-    bio = bio
-      .replace(/关注了你|正在关注|回关|Follows you|Following|Follow|Unfollow/gi, "")
-      .replace(/\s+/g, " ")
-      .trim();
+    profileAnchor?.remove();
+    handleAnchor?.remove();
+    bioCell.querySelectorAll('button, [role="button"], [data-testid="userFollowIndicator"]')
+      .forEach((node) => node.remove());
+    const bio = clean(bioCell.innerText || "");
 
     const followButton = cell.querySelector('[data-testid$="-follow"]') || cell.querySelector('button');
     const buttonText = clean(followButton?.innerText || "");

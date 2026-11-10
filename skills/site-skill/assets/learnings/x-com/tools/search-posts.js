@@ -1,10 +1,4 @@
-import { collectMore } from "./_pagination.js";
-
-function boundedInteger(value, fallback, max) {
-  const number = value === undefined ? fallback : Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  return Math.max(1, Math.min(max, Math.trunc(number)));
-}
+import { boundedInteger, collectMore } from "./_pagination.js";
 
 export async function searchPosts(ctx, args = {}) {
   const query = String(args.query || "").trim();
@@ -52,7 +46,7 @@ export async function searchPosts(ctx, args = {}) {
     browserTool: "extract_search_results",
     arrayKey: "items",
     maxItems,
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxScrolls: args.maxScrolls,
   });
   return {
     ...result,

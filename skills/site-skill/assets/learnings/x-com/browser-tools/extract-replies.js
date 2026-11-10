@@ -49,15 +49,13 @@ async function (args) {
       displayName = texts.find((text) => !text.startsWith("@")) || username;
       handle = texts.find((text) => text.startsWith("@")) || `@${username}`;
     }
-    const textNode = el.querySelector('[data-testid="tweetText"]');
-    let text = clean(textNode?.innerText || "");
-    if (!text) {
-      const candidates = [...el.querySelectorAll('[dir="auto"]')]
-        .map((node) => clean(node.innerText || ""))
-        .filter((value) => value.length > 10)
-        .sort((a, b) => b.length - a.length);
-      text = candidates[0] || "";
+    let textNode = el.querySelector('[data-testid="tweetText"]');
+    if (!textNode) {
+      textNode = [...el.querySelectorAll('[dir="auto"]')]
+        .filter((node) => !node.closest('[data-testid="User-Name"], [data-testid="socialContext"], a[href]'))
+        .sort((a, b) => clean(b.innerText).length - clean(a.innerText).length)[0] || null;
     }
+    const text = clean(textNode?.innerText || "");
     const timeNode = el.querySelector("time");
     return {
       id,
@@ -68,7 +66,10 @@ async function (args) {
       timeText: clean(timeNode?.innerText || ""),
       text,
       textLength: text.length,
-      isPromoted: /Promoted|广告/i.test(el.innerText || ""),
+      isPromoted: [...el.querySelectorAll('span, [data-testid="socialContext"]')].some((node) =>
+        node !== textNode && !textNode?.contains(node) &&
+        !node.closest('[data-testid="User-Name"], a[href]') &&
+        /^(Promoted|Ad|广告)$/i.test(clean(node.innerText))),
       images: [...el.querySelectorAll('[data-testid="tweetPhoto"] img')].map((img) => ({
         url: img.currentSrc || img.src || "",
         alt: img.alt || "",
@@ -78,8 +79,8 @@ async function (args) {
 
   const parsed = articles.map(parse);
   const root = parsed[0];
-  const replies = parsed.slice(1).filter((reply) => reply.id && !reply.isPromoted).slice(0, maxItems).map((reply, index) => {
-    const context = parsed[index];
+  const replies = parsed.slice(1).filter((reply) => reply.id && !reply.isPromoted).slice(0, maxItems).map((reply, index, visibleReplies) => {
+    const context = visibleReplies[index - 1];
     return {
       ...reply,
       replyToPostId: root.id,

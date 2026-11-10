@@ -1,0 +1,12 @@
+{
+  "name": "site-skill",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "validate": "node skills/site-skill/scripts/validate-site-learning.mjs"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.15"
+  }
+}

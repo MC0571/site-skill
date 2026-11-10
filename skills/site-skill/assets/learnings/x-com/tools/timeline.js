@@ -1,10 +1,4 @@
-import { collectMore } from "./_pagination.js";
-
-function boundedInteger(value, fallback, max) {
-  const number = value === undefined ? fallback : Number(value);
-  if (!Number.isFinite(number)) return fallback;
-  return Math.max(1, Math.min(max, Math.trunc(number)));
-}
+import { boundedInteger, collectMore } from "./_pagination.js";
 
 export async function getTimelinePosts(ctx, args = {}) {
   const maxPosts = boundedInteger(args.maxPosts, 50, 100);
@@ -12,7 +6,8 @@ export async function getTimelinePosts(ctx, args = {}) {
     browserTool: "extract_timeline",
     arrayKey: "items",
     maxItems: maxPosts,
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxScrolls: args.maxScrolls,
   });
-  return (result.items || []).slice(0, maxPosts);
+  if (result.ok === false) throw new Error(result.reason, { cause: result });
+  return result.items;
 }

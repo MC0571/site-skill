@@ -30,7 +30,7 @@ export async function getHistory(ctx, args = {}) {
     browserTool: "extract_timeline",
     arrayKey: "items",
     maxItems,
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxScrolls: args.maxScrolls,
   });
   return {
     ...result,

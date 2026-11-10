@@ -51,6 +51,18 @@ site-skill/
 └── LICENSE
 ```
 
+## 开发验证
+
+需要 Node.js 22 或更高版本。在仓库根目录运行：
+
+```bash
+npm ci
+npm test
+npm run validate
+```
+
+测试使用隔离的 HTML、工具上下文及安装目录，不访问真实账号。
+
 ## License
 
 MIT

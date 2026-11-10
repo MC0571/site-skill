@@ -30,14 +30,15 @@ export async function getUserPosts(ctx, args = {}) {
     };
   }
 
+  const target = `@${username}`.toLowerCase();
   const result = await collectMore(ctx, {
     browserTool: "extract_timeline",
     arrayKey: "items",
-    maxItems: Math.min(100, Math.max(maxItems, 20)),
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxItems,
+    maxScrolls: args.maxScrolls,
+    predicate: (item) => (item.handle || "").toLowerCase() === target,
   });
-  const target = `@${username}`.toLowerCase();
-  const items = (result.items || []).filter((item) => (item.handle || "").toLowerCase() === target).slice(0, maxItems);
+  const items = result.items || [];
 
   return {
     ...result,

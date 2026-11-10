@@ -103,8 +103,8 @@ async function (args) {
         if (items.length) blocks.push({ type: "list", ordered: tag === "OL", items });
         continue;
       }
-      if (tag === "PRE" || cls.includes("x-article-code") || child.querySelector('[data-testid="markdown-code-block"]')) {
-        push({ type: "code", text: clean(child.innerText) });
+      if (tag === "PRE" || cls.includes("x-article-code") || child.matches('[data-testid="markdown-code-block"]') || child.querySelector('[data-testid="markdown-code-block"]')) {
+        push({ type: "code", text: child.textContent || "" });
         continue;
       }
       if (tag === "BLOCKQUOTE") {
@@ -133,9 +133,7 @@ async function (args) {
 
   const contentText = blocks
     .map((block) => (block.type === "list" ? block.items.join("\n") : block.text))
-    .join("\n\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .join("\n\n");
 
   const imageRoot = read || guestBody || document;
   const images = [...imageRoot.querySelectorAll("img")]

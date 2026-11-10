@@ -119,31 +119,46 @@ async function (args) {
   const nestedBlockSelector = "p,h1,h2,h3,h4,h5,h6,li,blockquote,pre,table,section,figure,div";
 
   const walk = (parent) => {
-    for (const child of Array.from(parent.children || [])) {
-      const tag = (child.tagName || "").toUpperCase();
+    let inlineText = "";
+    const flushInline = () => {
+      const text = inlineText.replace(/\u00a0/g, " ").trim();
+      if (text) blocks.push({ type: "text", text });
+      inlineText = "";
+    };
+    for (const child of Array.from(parent.childNodes)) {
+      if (child.nodeType === 3) {
+        inlineText += child.textContent;
+        continue;
+      }
+      if (child.nodeType !== 1) continue;
+      const tag = child.tagName.toUpperCase();
       if (tag === "SCRIPT" || tag === "STYLE" || tag === "NOSCRIPT") continue;
       if (tag === "IMG") {
         collectImage(child);
         continue;
       }
-      if (blockTags.has(tag) && child.querySelector(nestedBlockSelector)) {
-        walk(child);
+      if (tag === "BR") {
+        inlineText += "\n";
         continue;
       }
-      if (blockTags.has(tag)) {
+      const hasNestedBlocks = child.querySelector(nestedBlockSelector);
+      if (!blockTags.has(tag) && !hasNestedBlocks) {
         child.querySelectorAll("img").forEach(collectImage);
-        const text = (child.innerText || child.textContent || "").replace(/\u00a0/g, " ").trim();
-        if (text) {
-          blocks.push({ type: tag.toLowerCase(), text });
-        }
+        inlineText += child.innerText || child.textContent || "";
+        continue;
+      }
+      flushInline();
+      if (hasNestedBlocks) {
+        walk(child);
         continue;
       }
       child.querySelectorAll("img").forEach(collectImage);
-      const hasText = (child.textContent || "").trim().length > 0;
-      if (hasText) {
-        walk(child);
+      const text = (child.innerText || child.textContent || "").replace(/\u00a0/g, " ").trim();
+      if (text) {
+        blocks.push({ type: tag.toLowerCase(), text });
       }
     }
+    flushInline();
   };
 
   walk(content);

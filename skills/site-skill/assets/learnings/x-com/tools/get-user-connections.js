@@ -44,7 +44,7 @@ export async function getUserConnections(ctx, args = {}) {
     browserTool: "extract_user_cells",
     arrayKey: "users",
     maxItems,
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxScrolls: args.maxScrolls,
     keyOf: (item) => item.profileUrl || item.handle,
   });
   return { ...result, username, kind, requestedUrl: url };

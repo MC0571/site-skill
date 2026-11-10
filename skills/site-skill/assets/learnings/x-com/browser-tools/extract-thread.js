@@ -112,6 +112,7 @@ async function (args) {
     if (previousId !== null && idBig <= previousId) break;
     posts.push(post);
     previousId = idBig;
+    if (posts.length >= maxPosts) break;
   }
 
   const numbered = posts

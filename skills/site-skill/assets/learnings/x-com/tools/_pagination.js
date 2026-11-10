@@ -2,18 +2,27 @@ function defaultKey(item) {
   return item.id || item.url || `${item.handle || ""}|${item.text || ""}`;
 }
 
+export function boundedInteger(value, fallback, max, min = 1) {
+  const number = value === undefined ? fallback : Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(number)));
+}
+
 export async function collectMore(ctx, options = {}) {
   const {
     browserTool,
     arrayKey = "items",
     args = {},
     maxItems = 50,
-    maxScrolls = 5,
+    maxScrolls: requestedScrolls,
     keyOf = defaultKey,
+    predicate,
   } = options;
 
+  const maxScrolls = boundedInteger(requestedScrolls, 5, 20, 0);
   const requestArgs = { ...args, maxItems: Math.min(100, Math.max(maxItems, 20)) };
   const first = await ctx.runSiteBrowserTool("x-com", browserTool, requestArgs);
+  if (first.ok === false) return first;
   const merged = [];
   const seen = new Set();
 
@@ -22,7 +31,7 @@ export async function collectMore(ctx, options = {}) {
       const key = keyOf(item);
       if (!key || seen.has(key)) continue;
       seen.add(key);
-      merged.push(item);
+      if (!predicate || predicate(item)) merged.push(item);
     }
   };
 
@@ -35,10 +44,11 @@ export async function collectMore(ctx, options = {}) {
     await ctx.scroll({ dx: 0, dy: 1800 });
     await ctx.wait(1.2);
     const next = await ctx.runSiteBrowserTool("x-com", browserTool, { ...args, maxItems: 100 });
-    const previousSize = merged.length;
+    if (next.ok === false) return next;
+    const previousSize = seen.size;
     add(next[arrayKey]);
     rounds += 1;
-    if (merged.length === previousSize) {
+    if (seen.size === previousSize) {
       stalls += 1;
       const after = await ctx.js(`(() => ({ y: window.scrollY, h: document.body.scrollHeight }))()`);
       if (stalls >= 2 || (after.y === before.y && after.h === before.h)) break;

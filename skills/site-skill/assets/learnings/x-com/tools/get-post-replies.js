@@ -39,7 +39,7 @@ export async function getPostReplies(ctx, args = {}) {
     browserTool: "extract_replies",
     arrayKey: "replies",
     maxItems,
-    maxScrolls: Math.max(0, Math.min(Number(args.maxScrolls) || 5, 20)),
+    maxScrolls: args.maxScrolls,
   });
   return { ...result, requestedUrl: url };
 }
