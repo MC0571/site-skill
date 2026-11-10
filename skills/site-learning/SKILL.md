@@ -27,13 +27,16 @@ A site learning pack is a directory:
     └── <tool>.js        # Page-side tool: extracts data from current DOM only
 ```
 
-ego-browser discovers packs through `EGO_BROWSER_AGENT_WORKSPACE`:
+ego-browser discovers packs through `EGO_BROWSER_AGENT_WORKSPACE`.
 
-```bash
-export EGO_BROWSER_AGENT_WORKSPACE="${SITE_LEARNING_ROOT:-$PWD/.ego-browser}"
+Important: the bundled ego lite runtime may not inherit shell environment variables, so set it inside the Node script, not only with `export`:
+
+```js
+process.env.EGO_BROWSER_AGENT_WORKSPACE =
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<absolute path to site-skill>/.ego-browser";
 ```
 
-Then:
+Then, in the same script:
 
 - `siteSkillsForUrl(url)` — list packs matching the URL
 - `learnContext(url)` — load matching notes and tool signatures

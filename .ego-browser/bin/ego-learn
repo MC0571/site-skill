@@ -1,5 +1,48 @@
 #!/bin/sh
 # ego-browser wrapper that points site learnings at this workspace.
+# It also injects the workspace into the Node script itself, because the
+# bundled ego lite runtime may not inherit shell environment variables.
+set -e
 DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-export EGO_BROWSER_AGENT_WORKSPACE="$DIR"
-exec ego-browser "$@"
+
+escape_single() {
+  printf "%s" "$1" | sed "s/'/'\\\\''/g"
+}
+WORKSPACE_ESCAPED=$(escape_single "$DIR")
+PRELUDE="process.env.EGO_BROWSER_AGENT_WORKSPACE = '$WORKSPACE_ESCAPED';"
+
+REAL="${EGO_BROWSER_REAL:-}"
+if [ -z "$REAL" ] || [ ! -x "$REAL" ]; then
+  REAL="$HOME/.local/share/ego/active_version_dir/Helpers/ego-browser"
+fi
+if [ ! -x "$REAL" ]; then
+  REAL=$(command -v ego-browser 2>/dev/null || true)
+fi
+if [ -z "$REAL" ]; then
+  echo "ego-browser not found" >&2
+  exit 127
+fi
+
+if [ "${1:-}" = "nodejs" ]; then
+  shift
+  case "${1:-}" in
+    -e|--eval)
+      if [ $# -lt 2 ]; then
+        echo "usage: ego-learn nodejs -e <script>" >&2
+        exit 2
+      fi
+      CODE="$2"
+      shift 2
+      exec "$REAL" nodejs -e "$PRELUDE
+$CODE" "$@"
+      ;;
+  esac
+  if [ $# -gt 0 ]; then
+    echo "error: ego-learn nodejs accepts stdin or -e/--eval only" >&2
+    exit 2
+  fi
+  { printf '%s\n' "$PRELUDE"; cat; } | "$REAL" nodejs
+  exit $?
+fi
+
+exec "$REAL" "$@"

@@ -14,10 +14,12 @@
 
 ## 使用方式
 
-ego lite 自带运行时的默认 learnings 路径在当前版本可能解析不到，因此调用前需要把 `EGO_BROWSER_AGENT_WORKSPACE` 指向本目录：
+ego lite 自带运行时的默认 learnings 路径在当前版本可能解析不到，因此调用前需要让 `EGO_BROWSER_AGENT_WORKSPACE` 指向本目录。
+
+推荐使用包装脚本（会把路径注入到 Node 脚本本身，不依赖 shell 环境变量是否被运行时继承）：
 
 ```bash
-EGO_BROWSER_AGENT_WORKSPACE="$PWD/.ego-browser" ego-browser nodejs <<'EOF'
+./.ego-browser/bin/ego-learn nodejs <<'EOF'
 const task = await taskSpace("read article");
 const article = await runSiteTool("wechat-mp", "extract_article", {
   url: "https://mp.weixin.qq.com/s/xxxx",
@@ -27,12 +29,11 @@ await task.finish({ keep: [] });
 EOF
 ```
 
-也可以直接用本目录的包装脚本（会自动设置环境变量）：
+如果直接使用 `ego-browser nodejs`，请在脚本开头示例：
 
-```bash
-./.ego-browser/bin/ego-learn nodejs <<'EOF'
-...
-EOF
+```js
+process.env.EGO_BROWSER_AGENT_WORKSPACE =
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<path-to-site-skill>/.ego-browser";
 ```
 
 ## 已包含的学习包

@@ -17,10 +17,10 @@ site-skill/
 
 ## 快速使用
 
-从仓库根目录调用：
+推荐使用包装器；它会把工作区路径注入到 Node 脚本里，不依赖 shell 环境变量是否被 ego lite 运行时继承：
 
 ```bash
-EGO_BROWSER_AGENT_WORKSPACE="$PWD/.ego-browser" ego-browser nodejs <<'EOF'
+./.ego-browser/bin/ego-learn nodejs <<'EOF'
 const task = await taskSpace("read article");
 const article = await runSiteTool("wechat-mp", "extract_article", {
   url: "https://mp.weixin.qq.com/s/xxxx",
@@ -30,16 +30,18 @@ await task.finish({ keep: [] });
 EOF
 ```
 
-或使用包装器：
+如果直接使用 `ego-browser nodejs`，请在每段脚本开头显式设置：
 
-```bash
-./.ego-browser/bin/ego-learn nodejs <<'EOF'
-const task = await taskSpace("read x");
-const result = await runSiteTool("x-com", "search_posts", { query: "AI", maxItems: 20 });
-console.log(result);
-await task.finish({ keep: [] });
-EOF
+```js
+process.env.EGO_BROWSER_AGENT_WORKSPACE =
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<absolute path to site-skill>/.ego-browser";
 ```
+
+因为 ego lite 自带运行时不一定会继承 shell 的 `export`。
+
+## ego-browser 主 SKILL 引导
+
+默认的 `ego-browser` SKILL 不会主动提示 Agent 检查站点学习包。如果希望在普通浏览器任务中也自动使用本仓库的学习包，请参考 [patches/ego-browser-site-learnings.md](patches/ego-browser-site-learnings.md) 给用户级 `ego-browser` SKILL 副本打一个可选补丁。
 
 ## 说明
 

@@ -27,7 +27,8 @@ Last verified: 2026-11-10
 先设置自定义学习工作区（ego lite 自带运行时默认可能找不到用户新增的 learnings）：
 
 ```js
-process.env.EGO_BROWSER_AGENT_WORKSPACE = "/Users/claw/Documents/deepseek-harness/default-workspace/.ego-browser";
+process.env.EGO_BROWSER_AGENT_WORKSPACE =
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<path-to-site-skill>/.ego-browser";
 ```
 
 然后调用：
