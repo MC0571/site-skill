@@ -49,7 +49,7 @@ Profile header selectors:
   - `Friends` → following count
   - `Tweets` → posts count
 - Avatar: `[data-testid="Tweet-User-Avatar"] img`
-- Verified: `[data-testid="icon-verified"]`
+- Verified: `[data-testid="icon-verified"]` inside the profile's `[data-testid="UserName"]`; ignore badges on timeline posts and recommended users.
 - Tabs: `[role="tab"]`; `Posts` href `/<username>`, `Replies` `/with_replies`, `Reposts` `/reposts`, `Media` `/media`, `Articles` `/articles`.
 
 Tool: `get_user_profile` → `extract_profile`.

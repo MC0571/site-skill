@@ -12,7 +12,7 @@ URL patterns:
 
 Page structure:
 
-- Main post: the first `article[data-testid="tweet"]` on the page
+- Main post: the `article[data-testid="tweet"]` whose own permalink matches the current URL's status ID
 - Replies and recommended posts also use `article[data-testid="tweet"]`; do not assume the first element is unique without checking the URL
 - Post text: `[data-testid="tweetText"]`
 - Author block: `[data-testid="User-Name"]`
@@ -34,6 +34,11 @@ Post-detail tool:
   - `images`, `videos`, `cards`
   - `metrics {reply, repost, like, bookmark, views}`
 - `extract_post_detail` (browser): parse the currently open post page.
+
+Reply tools:
+
+- `get_post_replies` and `extract_replies` keep the target status ID from the page URL, excluding the target itself and its ancestors.
+- X virtualizes conversations. The first visible article can be a reply after scrolling; do not remove it or infer a new target from it.
 
 ## X Articles (long-form posts)
 
@@ -98,7 +103,7 @@ Public posts and Articles can be read without login, but X serves a different DO
 
 Post page:
 
-- Main post: first `article` element (no `data-testid`)
+- Main post: the `article` whose own permalink matches the current URL's status ID (no `data-testid`)
 - Text: the longest `div[dir="auto"]` with `whitespace-pre-wrap` styling
 - Author: anchors `a[href="/<username>"]`; display name is the anchor text that does not start with `@`, handle is the `@...` anchor
 - Media: `article img` filtered to exclude `/profile_images/`

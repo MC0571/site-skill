@@ -3,6 +3,7 @@ async function (args) {
     (value || "").replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
   const maxItems = Math.max(1, Math.min(Number(args.maxItems) || 50, 100));
   const currentUrl = location.href;
+  const target = new URL(currentUrl).pathname.match(/^\/([^/]+)\/status\/(\d+)/);
 
   if (/\/i\/(?:jf\/onboarding|flow\/login)|\/login/.test(currentUrl)) {
     return {
@@ -19,7 +20,7 @@ async function (args) {
   let articles = conversation ? [...conversation.querySelectorAll('article[data-testid="tweet"]')] : [];
   if (articles.length === 0) articles = [...document.querySelectorAll('article[data-testid="tweet"]')];
   if (articles.length === 0 && isGuest) articles = [...document.querySelectorAll('article')];
-  if (articles.length === 0) {
+  if (articles.length === 0 || !target) {
     return {
       ok: false,
       reason: "replies_not_found",
@@ -33,7 +34,7 @@ async function (args) {
     const statusLinks = [...el.querySelectorAll('a[href*="/status/"]')]
       .map((a) => a.href)
       .filter((href) => /\/status\/\d+$/.test(href));
-    const statusUrl = statusLinks[0] || "";
+    const statusUrl = el.querySelector("time")?.closest('a[href*="/status/"]')?.href || statusLinks[0] || "";
     const id = (statusUrl.match(/\/status\/(\d+)/) || [])[1] || "";
     const username = (statusUrl.match(/https?:\/\/[^/]+\/([^/]+)\/status\//) || [])[1] || "";
     const userName = el.querySelector('[data-testid="User-Name"]');
@@ -78,15 +79,18 @@ async function (args) {
   };
 
   const parsed = articles.map(parse);
-  const root = parsed[0];
-  const replies = parsed.slice(1).filter((reply) => reply.id && !reply.isPromoted).slice(0, maxItems).map((reply, index, visibleReplies) => {
+  const rootId = target[2];
+  const rootNumber = BigInt(rootId);
+  const root = parsed.find((post) => post.id === rootId);
+  const rootAuthor = { name: root?.displayName || "", handle: root?.handle || `@${target[1]}` };
+  const replies = parsed.filter((reply) => reply.id && BigInt(reply.id) > rootNumber && !reply.isPromoted).slice(0, maxItems).map((reply, index, visibleReplies) => {
     const context = visibleReplies[index - 1];
     return {
       ...reply,
-      replyToPostId: root.id,
-      replyToHandle: root.handle,
+      replyToPostId: rootId,
+      replyToHandle: rootAuthor.handle,
       contextBefore:
-        context && context.id !== root.id
+        context
           ? { id: context.id, handle: context.handle, displayName: context.displayName, text: context.text.slice(0, 180) }
           : null,
     };
@@ -96,8 +100,8 @@ async function (args) {
     ok: true,
     url: currentUrl,
     title: clean(document.title),
-    rootPostId: root.id,
-    rootAuthor: { name: root.displayName, handle: root.handle },
+    rootPostId: rootId,
+    rootAuthor,
     replyCount: replies.length,
     replies,
   };

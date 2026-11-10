@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { parseHTML } from 'linkedom';
+import { getPostReplies } from '../skills/site-skill/assets/learnings/x-com/tools/get-post-replies.js';
 
 const browserTools = new URL('../skills/site-skill/assets/learnings/x-com/browser-tools/', import.meta.url);
 
@@ -80,6 +81,57 @@ test('post detail reports a missing target instead of returning the available pa
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'post_not_found');
+});
+
+test('reply extraction identifies the requested nested post and excludes its ancestors', async () => {
+  const result = await extract('extract-replies.js', `
+    <article data-testid="tweet">
+      <a href="https://x.com/bob/status/200">Quoted target link</a>
+      <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+      <div data-testid="tweetText">Ancestor</div>
+    </article>
+    <article data-testid="tweet">
+      <a href="https://x.com/bob/status/200"><time>Nov 10</time></a>
+      <div data-testid="User-Name"><a href="/bob">Bob</a><a href="/bob">@bob</a></div>
+      <div data-testid="tweetText">Requested nested post</div>
+    </article>
+    <article data-testid="tweet">
+      <a href="https://x.com/carol/status/300"><time>Nov 10</time></a>
+      <div data-testid="tweetText">Reply to the target</div>
+    </article>
+  `, 'https://x.com/bob/status/200');
+  assert.equal(result.rootPostId, '200');
+  assert.deepEqual(result.rootAuthor, { name: 'Bob', handle: '@bob' });
+  assert.deepEqual(result.replies.map(reply => reply.id), ['300']);
+  assert.equal(result.replies[0].replyToPostId, '200');
+  assert.equal(result.replies[0].replyToHandle, '@bob');
+});
+
+test('reply pagination retains every reply after the target leaves the virtualized DOM', async () => {
+  const url = 'https://x.com/alice/status/100';
+  const pages = [
+    `<article data-testid="tweet"><a href="https://x.com/alice/status/100"><time>Nov 10</time></a><div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div><div data-testid="tweetText">Target</div></article>
+     <article data-testid="tweet"><a href="https://x.com/bob/status/200"><time>Nov 10</time></a><div data-testid="tweetText">First reply</div></article>`,
+    `<article data-testid="tweet"><a href="https://x.com/carol/status/300"><time>Nov 10</time></a><div data-testid="tweetText">Second reply</div></article>
+     <article data-testid="tweet"><a href="https://x.com/dave/status/400"><time>Nov 10</time></a><div data-testid="tweetText">Third reply</div></article>`,
+  ];
+  let page = 0;
+  const ctx = {
+    async openOrReuseTab() {}, async waitForLoad() {}, async wait() {},
+    async js() { return { url, tweetCount: 2, articleCount: 2, y: page * 1800, h: 5000 }; },
+    async scroll() { page += 1; },
+    async runSiteBrowserTool(site, tool, args) {
+      assert.equal(site, 'x-com');
+      assert.equal(tool, 'extract_replies');
+      return extract('extract-replies.js', pages[page], url, args);
+    },
+  };
+  const result = await getPostReplies(ctx, { url, maxItems: 3, maxScrolls: 1 });
+  assert.deepEqual(result.replies.map(reply => reply.id), ['200', '300', '400']);
+  assert.ok(result.replies.every(reply => reply.replyToPostId === '100' && reply.replyToHandle === '@alice'));
+  assert.equal(result.rootPostId, '100');
+  assert.deepEqual(result.rootAuthor, { name: 'Alice', handle: '@alice' });
+  assert.equal(result.scrollRounds, 1);
 });
 
 for (const marker of ['Promoted', '广告', 'Ad']) {

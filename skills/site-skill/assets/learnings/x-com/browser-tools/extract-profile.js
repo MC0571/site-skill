@@ -46,7 +46,8 @@ async function (args) {
   const followersMatch = bodyText.match(/([\d.,]+[KMB]?)\s*(?:关注者|Followers)/i);
   const followingMatch = bodyText.match(/([\d.,]+[KMB]?)\s*(?:正在关注|Following)/i);
 
-  const userNameText = clean(document.querySelector('[data-testid="UserName"]')?.innerText || "");
+  const userNameEl = document.querySelector('[data-testid="UserName"]');
+  const userNameText = clean(userNameEl?.innerText || "");
   const nameFromDom = userNameText.replace(/@\S+/g, "").trim();
   const displayName = clean(person.name || nameFromDom || meta("profile:first_name") || document.querySelector("h1")?.innerText || username);
   const handle = person.additionalName
@@ -84,7 +85,7 @@ async function (args) {
       meta("og:image") ||
       "",
     bannerUrl: document.querySelector('img[src*="profile_banners"]')?.src || "",
-    verified: Boolean(document.querySelector('[data-testid="icon-verified"]')),
+    verified: Boolean(userNameEl?.querySelector('[data-testid="icon-verified"]')),
   };
 
   const tabs = [...document.querySelectorAll('[role="tab"]')].map((tab) => ({

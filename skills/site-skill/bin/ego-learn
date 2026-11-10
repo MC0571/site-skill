@@ -6,11 +6,8 @@ set -e
 SKILL_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 WORKSPACE="$SKILL_DIR/assets"
 
-escape_single() {
-  printf "%s" "$1" | sed "s/'/'\\\\''/g"
-}
-WORKSPACE_ESCAPED=$(escape_single "$WORKSPACE")
-PRELUDE="process.env.EGO_BROWSER_AGENT_WORKSPACE = '$WORKSPACE_ESCAPED';"
+WORKSPACE_JSON=$(node -p 'JSON.stringify(process.argv[1])' "$WORKSPACE")
+PRELUDE="process.env.EGO_BROWSER_AGENT_WORKSPACE = $WORKSPACE_JSON;"
 
 REAL="${EGO_BROWSER_REAL:-}"
 if [ -z "$REAL" ] || [ ! -x "$REAL" ]; then
