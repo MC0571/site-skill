@@ -4,13 +4,16 @@ import { getHistory } from "../skills/site-skill/assets/learnings/x-com/tools/ge
 import { getPostReplies } from "../skills/site-skill/assets/learnings/x-com/tools/get-post-replies.js";
 import { getThread } from "../skills/site-skill/assets/learnings/x-com/tools/get-thread.js";
 import { getUserConnections } from "../skills/site-skill/assets/learnings/x-com/tools/get-user-connections.js";
-import { getUserPosts } from "../skills/site-skill/assets/learnings/x-com/tools/get-user-posts.js";
+import { extractProfilePostsReport, getUserPosts } from "../skills/site-skill/assets/learnings/x-com/tools/get-user-posts.js";
 import { getUserReplies } from "../skills/site-skill/assets/learnings/x-com/tools/get-user-replies.js";
 import { searchPosts } from "../skills/site-skill/assets/learnings/x-com/tools/search-posts.js";
 import { getTimelinePosts } from "../skills/site-skill/assets/learnings/x-com/tools/timeline.js";
 
 const postUrl = "https://x.com/alice/status/100";
-const post = (id, handle = "@alice") => ({ id: String(id), handle, text: `post ${id}` });
+const post = (id, handle = "@alice") => ({
+  id: String(id), handle, text: `post ${id}`, url: `https://x.com/${handle.slice(1)}/status/${id}`,
+  displayName: handle.slice(1), timeText: "17小时", metrics: { like: "1,317", view: "41万" }, images: [], videos: [],
+});
 
 function ctxFor(batches) {
   let batch = 0;
@@ -22,12 +25,14 @@ function ctxFor(batches) {
     async wait() {},
     async waitForElement() {},
     async scroll() { ctx.scrolls += 1; },
-    async js() {
+    async js(script) {
+      if (script.includes('let clicked = 0')) return 0;
       return {
         url: postUrl,
         title: "X",
         tweetCount: 1,
         articleCount: 1,
+        ready: true,
         y: ctx.scrolls * 1800,
         h: 10000,
       };
@@ -196,9 +201,21 @@ test("author-filtered pagination still stops when the source repeats", async () 
     { ok: true, items: [otherPost] },
     { ok: true, items: [otherPost] },
   ]);
+  const readState = ctx.js;
+  ctx.js = async (script) => ({ ...await readState(script), y: Math.min(ctx.scrolls, 2) * 1800 });
   const result = await getUserPosts(ctx, { username: "alice", maxItems: 2, maxScrolls: 5 });
   assert.deepEqual(result.items.map(item => item.id), ["100"]);
   assert.equal(ctx.scrolls, 3);
+});
+
+test("profile collection keeps scrolling through a tall expanded post until a new card appears", async () => {
+  const repeated = { ok: true, items: [post(100)] };
+  const ctx = ctxFor([repeated, repeated, repeated, repeated, repeated, { ok: true, items: [post(101)] }]);
+  const result = await getUserPosts(ctx, { username: "alice", maxItems: 2, maxScrolls: 6 });
+
+  assert.deepEqual(result.items.map(item => item.id), ["100", "101"]);
+  assert.equal(result.scrollRounds, 5);
+  assert.equal(result.stopReason, "max_items");
 });
 
 test("getTimelinePosts returns arrays for populated and empty successful results", async () => {
@@ -208,4 +225,63 @@ test("getTimelinePosts returns arrays for populated and empty successful results
 
   const emptyCtx = ctxFor([{ ok: true, items: [] }]);
   assert.deepEqual(await getTimelinePosts(emptyCtx, { maxPosts: 2, maxScrolls: 0 }), []);
+});
+
+test("profile collection can reach 50 posts beyond the former 20-scroll cap", async () => {
+  const batches = Array.from({ length: 42 }, (_, i) => ({
+    ok: true, items: i === 41 ? Array.from({ length: 9 }, (_, j) => post(200 + j)) : [post(100 + i)],
+  }));
+  const ctx = ctxFor(batches);
+  const distances = [];
+  ctx.scroll = async ({ dy }) => { ctx.scrolls += 1; distances.push(dy); };
+  const result = await getUserPosts(ctx, { username: "alice", maxItems: 50 });
+
+  assert.equal(result.itemCount, 50);
+  assert.equal(result.scrollRounds, 41);
+  assert.equal(result.stopReason, "max_items");
+  assert.ok(distances.every(distance => distance === 650));
+});
+
+test("profile report preserves displayed thread order, reposts, missing counts and source fields", async () => {
+  const root = { ...post(100), text: "First paragraph\n\n- Second line", isPinned: true };
+  const reply = { ...post(102), isTruncated: true };
+  const repost = { ...post(99, "@bob"), images: [{ url: "https://example.com/image.jpg" }], videos: [{ url: "", poster: "https://example.com/poster.jpg" }] };
+  const ad = { ...post(103, "@sponsor"), isPromoted: true };
+  const ctx = ctxFor([{ ok: true, items: [root, ad, reply] }, { ok: true, items: [reply, repost] }]);
+  const result = await extractProfilePostsReport(ctx, { username: "alice", maxItems: 3 });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.posts_recorded, 3);
+  assert.equal(result.goal_reached, true);
+  assert.deepEqual(result.rows.map(row => row.post_id), ["100", "102", "99"]);
+  assert.equal(result.rows[0].post_text, root.text);
+  assert.equal(result.rows[0].view_count, "41万");
+  assert.equal(result.rows[0].like_count, "1,317");
+  assert.equal(result.rows[0].quote_count, "not displayed");
+  assert.equal(result.rows[0].bookmark_count, "not displayed");
+  assert.equal(result.rows[0].date_time_displayed, "17小时");
+  assert.equal(result.rows[1].needs_review, true);
+  assert.equal(result.rows[2].image_urls, repost.images[0].url);
+  assert.equal(result.rows[2].video_poster_urls, repost.videos[0].poster);
+  assert.ok(result.rows.every(row => row.source_url === "https://x.com/alice" && row.access_status === "ok" && !Number.isNaN(Date.parse(row.checked_at))));
+});
+
+test("a late profile block preserves already recorded rows with an honest run status", async () => {
+  const ctx = ctxFor([{ ok: true, items: [post(100)] }, { ok: false, reason: "rate_limited", url: "https://x.com/alice" }]);
+  const result = await extractProfilePostsReport(ctx, { username: "alice", maxItems: 2 });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.access_status, "rate_limited");
+  assert.equal(result.stop_reason, "blocked");
+  assert.equal(result.goal_reached, false);
+  assert.equal(result.posts_recorded, 1);
+  assert.equal(result.rows[0].post_id, "100");
+  assert.equal(result.rows[0].access_status, "ok");
+});
+
+test("a profile report marks a scroll budget as incomplete rather than claiming the feed ended", async () => {
+  const result = await extractProfilePostsReport(ctxFor([{ ok: true, items: [post(100)] }]), { username: "alice", maxItems: 50, maxScrolls: 0 });
+  assert.equal(result.posts_recorded, 1);
+  assert.equal(result.goal_reached, false);
+  assert.equal(result.stop_reason, "scroll_limit");
 });

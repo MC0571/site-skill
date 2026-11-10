@@ -17,11 +17,16 @@ export async function collectMore(ctx, options = {}) {
     maxScrolls: requestedScrolls,
     keyOf = defaultKey,
     predicate,
+    readPage = (pageArgs) => ctx.runSiteBrowserTool("x-com", browserTool, pageArgs),
+    scrollDistance = 1800,
+    scrollLimit = 20,
+    preservePartial = false,
+    stopOnRepeated = true,
   } = options;
 
-  const maxScrolls = boundedInteger(requestedScrolls, 5, 20, 0);
+  const maxScrolls = boundedInteger(requestedScrolls, 5, scrollLimit, 0);
   const requestArgs = { ...args, maxItems: Math.min(100, Math.max(maxItems, 20)) };
-  const first = await ctx.runSiteBrowserTool("x-com", browserTool, requestArgs);
+  const first = await readPage(requestArgs);
   if (first.ok === false) return first;
   const merged = [];
   const seen = new Set();
@@ -38,32 +43,45 @@ export async function collectMore(ctx, options = {}) {
   add(first[arrayKey]);
   let rounds = 0;
   let stalls = 0;
+  let stopReason = "scroll_limit";
+  const countKey = arrayKey === "replies" ? "replyCount" : arrayKey === "users" ? "userCount" : "itemCount";
 
-  while (merged.length < maxItems && rounds < maxScrolls) {
+  while (!first.emptyState && merged.length < maxItems && rounds < maxScrolls) {
     const before = await ctx.js(`(() => ({ y: window.scrollY, h: document.body.scrollHeight }))()`);
-    await ctx.scroll({ dx: 0, dy: 1800 });
+    await ctx.scroll({ dx: 0, dy: scrollDistance });
     await ctx.wait(1.2);
-    const next = await ctx.runSiteBrowserTool("x-com", browserTool, { ...args, maxItems: 100 });
-    if (next.ok === false) return next;
+    rounds += 1;
+    const next = await readPage({ ...args, maxItems: 100 });
+    if (next.ok === false && !preservePartial) return next;
+    if (next.ok === false) return {
+      ...next,
+      [arrayKey]: merged.slice(0, maxItems),
+      [countKey]: Math.min(merged.length, maxItems),
+      totalLoaded: merged.length,
+      scrollRounds: rounds,
+      stopReason: "blocked",
+    };
     const previousSize = seen.size;
     add(next[arrayKey]);
-    rounds += 1;
     if (seen.size === previousSize) {
       stalls += 1;
       const after = await ctx.js(`(() => ({ y: window.scrollY, h: document.body.scrollHeight }))()`);
-      if (stalls >= 2 || (after.y === before.y && after.h === before.h)) break;
+      if ((stopOnRepeated && stalls >= 2) || (after.y === before.y && after.h === before.h)) {
+        stopReason = "no_progress";
+        break;
+      }
     } else {
       stalls = 0;
     }
   }
 
   const visible = merged.slice(0, maxItems);
-  const countKey = arrayKey === "replies" ? "replyCount" : arrayKey === "users" ? "userCount" : "itemCount";
   return {
     ...first,
     [arrayKey]: visible,
     [countKey]: visible.length,
     totalLoaded: merged.length,
     scrollRounds: rounds,
+    stopReason: visible.length >= maxItems ? "max_items" : first.emptyState ? "empty" : stopReason,
   };
 }

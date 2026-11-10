@@ -65,6 +65,20 @@ Tools:
 
 - `get_user_posts` → `extract_timeline`, filtered to the profile handle.
 - `get_user_replies` → `extract_timeline` on `/with_replies`, filtered to the profile handle.
+- `extract_profile_posts_report` collects the whole displayed profile timeline, including reposts and thread context, without sorting by ID. Use it for source-linked post-data reports instead of reconstructing a collector.
+
+### Profile report data
+
+```js
+const report = await runSiteTool("x-com", "extract_profile_posts_report", {
+  username: "<username>", maxItems: 50,
+});
+```
+
+- The tool returns structured `rows`, not files. Rows include `post_index`, `post_id`, `post_url`, `post_text`, author handle/name, `date_time_displayed`, six `*_count` fields, `image_urls`, `video_poster_urls`, `source_url`, `checked_at`, `access_status`, and `needs_review`.
+- Counts and dates copy the rendered UI strings. Missing values use `not displayed`; media URL fields join multiple URLs with `; `. Paragraphs remain newlines in `post_text`. See [timeline.md](timeline.md) for original-language controls, media classification and access states.
+- Serialize those rows for the task's requested CSV/Markdown format. For CSV, quote fields containing commas, quotes or newlines; use UTF-8 BOM/CRLF when requested. For Markdown tables, escape pipes and render paragraph breaks without changing the text stored in CSV. Keep source fields on each row.
+- `goal_reached` means the requested unique-post count was reached. `stop_reason` is `max_items`, `scroll_limit`, `no_progress`, `empty`, or `blocked`. A scroll budget or unchanged rendered batch does not prove the full feed ended; report partial coverage honestly. Blocked runs preserve earlier rows.
 
 ## Followers / Following
 
@@ -98,6 +112,6 @@ History pages require login. Profile pages are publicly viewable, but some tabs 
 
 ## Limits
 
-- X timelines are virtualized; tools return the currently rendered batch. Scroll or paginate for more.
+- X timelines are virtualized; browser tools return the currently rendered batch. Node tools collect batches with deduplication; inspect the returned count and stop reason for coverage.
 - Counts from profile JSON-LD are authoritative at page load; UI counts can differ slightly.
 - Follower lists can have hundreds of entries; `maxItems` is capped at 100.
