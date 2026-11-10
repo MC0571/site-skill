@@ -1,0 +1,5 @@
+#!/bin/sh
+# ego-browser wrapper that points site learnings at this workspace.
+DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+export EGO_BROWSER_AGENT_WORKSPACE="$DIR"
+exec ego-browser "$@"

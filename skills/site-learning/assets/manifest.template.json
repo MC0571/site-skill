@@ -1,0 +1,35 @@
+{
+  "id": "__SITE_ID__",
+  "name": "__SITE_NAME__",
+  "domains": ["__DOMAIN__"],
+  "notes": ["notes/overview.md"],
+  "nodeTools": {
+    "open_and_extract": {
+      "description": "打开页面并提取主要内容。",
+      "path": "tools/open-and-extract.js",
+      "callable": "openAndExtract",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "要打开的页面 URL。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、url、title、contentText 的对象。"
+      }
+    }
+  },
+  "browserTools": {
+    "extract_page": {
+      "description": "从当前页面提取标题和主要内容。",
+      "path": "browser-tools/extract-page.js",
+      "args": {},
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、url、title、contentText 的对象。"
+      }
+    }
+  }
+}
