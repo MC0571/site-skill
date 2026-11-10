@@ -2,6 +2,14 @@
 
 这个补丁让用户级 `ego-browser` SKILL 在开始浏览器任务前主动检查站点学习包。
 
+macOS 上可以直接运行自动脚本：
+
+```bash
+node skills/site-skill/scripts/apply-ego-browser-patch.mjs
+```
+
+下面是手动应用步骤，适用于其他平台或需要自己控制 skill 副本位置的情况。
+
 ## 为什么要打这个补丁
 
 `ego-browser` 自带 SKILL 只说明如何运行 `ego-browser skill`，不会提示 Agent 调用：

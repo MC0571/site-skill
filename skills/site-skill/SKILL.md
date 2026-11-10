@@ -16,10 +16,11 @@ This skill covers the full lifecycle: use existing knowledge first, learn a new 
 
 Before any browser task on a site that may recur:
 
-1. Point `EGO_BROWSER_AGENT_WORKSPACE` at this skill's `assets` directory.
-2. Call `siteSkillsForUrl(url)` and `learnContext(url)`.
-3. If a matching pack exists, use `runSiteTool(siteId, toolName, args)` or `runSiteBrowserTool(...)` instead of exploring the DOM again.
-4. Only when no pack matches and the task is repeatable should you continue to the learning workflow below.
+1. Read `references/site-catalog.md` to see which site packs ship with this skill.
+2. Point `EGO_BROWSER_AGENT_WORKSPACE` at this skill's `assets` directory.
+3. Call `siteSkillsForUrl(url)` and `learnContext(url)`.
+4. If a matching pack exists, use `runSiteTool(siteId, toolName, args)` or `runSiteBrowserTool(...)` instead of exploring the DOM again.
+5. Only when no pack matches and the task is repeatable should you continue to the learning workflow below.
 
 ## Core model
 

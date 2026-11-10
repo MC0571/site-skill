@@ -92,11 +92,29 @@ process.env.EGO_BROWSER_AGENT_WORKSPACE =
 
 ## 4. 应用 ego-browser 主 SKILL 补丁
 
-默认的 `ego-browser` SKILL 不会提示 Agent 检查站点知识包。参考：
+默认的 `ego-browser` SKILL 不会提示 Agent 检查站点知识包。必须补上这段引导，否则即使站点包已经配置好，Agent 也可能不会主动使用。
 
-[patches/ego-browser-site-learnings.md](patches/ego-browser-site-learnings.md)
+### macOS / Linux 自动应用
 
-补丁只修改用户级 SKILL 副本，不修改 app bundle。
+在仓库根目录执行：
+
+```bash
+node skills/site-skill/scripts/apply-ego-browser-patch.mjs
+```
+
+脚本会：
+
+1. 创建用户级 `ego-browser` skill 副本：`~/.local/share/ego/ego-skills-local`
+2. 在 `SKILL.md` 中插入 `## Site learnings` 段落
+3. 把 `~/.local/share/ego/ego-skills` 指向该副本
+
+它不会修改 `/Applications/ego lite.app` 里的 app bundle。
+
+脚本完成后再重新加载 Agent，或重启 Agent 会话。
+
+### 手动应用
+
+如果脚本不支持你的平台，按 [patches/ego-browser-site-learnings.md](patches/ego-browser-site-learnings.md) 中的手动步骤操作。补丁只修改用户级 SKILL 副本，不修改 app bundle。
 
 ## 5. 验证
 
