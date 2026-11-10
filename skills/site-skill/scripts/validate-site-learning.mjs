@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
+const here = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
-const target = path.resolve(args[0] || path.join(process.cwd(), ".ego-browser", "learnings"));
+const target = path.resolve(args[0] || path.join(here, "..", "assets", "learnings"));
 
 const TOOL_TYPES = new Set(["string", "number", "integer", "boolean", "array", "object"]);
 const TEMP_REF_RE = /(?:@\d+\b|\bref=\d+\b)/;

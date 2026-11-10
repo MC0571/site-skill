@@ -1,16 +1,25 @@
 ---
-name: site-learning
-description: Use when an Agent needs to explore an unfamiliar website and turn what it learns into reusable site knowledge for ego-browser / ego lite. Trigger phrases include "给这个网站做站点学习", "沉淀站点知识", "site learning", "site skill", "下次不用重新探索", "build a site learning pack", or when siteSkillsForUrl(url) returns no matching pack. This skill produces manifest.json + notes + node tools + browser tools, tests them, and saves them under .ego-browser/learnings/<site-id>/. Not for one-off browsing tasks where nothing needs to be reused.
+name: site-skill
+description: Use before any browser task on a known or recurring site, and when learning an unfamiliar site. This skill covers the full site-knowledge lifecycle: discover existing site learning packs, apply them with siteSkillsForUrl/learnContext/runSiteTool, explore and distill new site knowledge into manifest.json + notes + node tools + browser tools, validate and maintain packs under skills/site-skill/assets/learnings. Trigger phrases include "站点学习", "站点知识", "site skill", "site learning", "下次不用重新探索", "build a site learning pack". Not for one-off browsing tasks where nothing needs to be reused.
 metadata:
-  version: "1.0.0"
+  version: "2.0.0"
   date: "2026-11-10"
 ---
 
-# Site Learning
+# Site Skill
 
-Build a reusable **site learning pack** for any website, so future Agent runs do not have to rediscover the same page structure, selectors, URL patterns, or extraction logic.
+Build, use, and maintain reusable **site knowledge packs** for any website, so future Agent runs do not have to rediscover the same page structure, selectors, URL patterns, or extraction logic.
 
-This skill is a **meta-skill**: it teaches the Agent how to explore a target site with `ego-browser` and distill stable, reusable knowledge into the format ego-browser already understands.
+This skill covers the full lifecycle: use existing knowledge first, learn a new site when needed, and keep packs validated and current.
+
+## Start here: use existing site knowledge first
+
+Before any browser task on a site that may recur:
+
+1. Point `EGO_BROWSER_AGENT_WORKSPACE` at this skill's `assets` directory.
+2. Call `siteSkillsForUrl(url)` and `learnContext(url)`.
+3. If a matching pack exists, use `runSiteTool(siteId, toolName, args)` or `runSiteBrowserTool(...)` instead of exploring the DOM again.
+4. Only when no pack matches and the task is repeatable should you continue to the learning workflow below.
 
 ## Core model
 
@@ -33,7 +42,7 @@ Important: the bundled ego lite runtime may not inherit shell environment variab
 
 ```js
 process.env.EGO_BROWSER_AGENT_WORKSPACE =
-  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<absolute path to site-skill>/.ego-browser";
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<absolute path to skills/site-skill>/assets";
 ```
 
 Then, in the same script:
@@ -175,11 +184,12 @@ Never use:
 Scaffold a new pack:
 
 ```bash
-node skills/site-learning/scripts/new-site-learning.mjs \
+# 在 skills/site-skill 目录内运行
+node scripts/new-site-learning.mjs \
   --site-id example \
   --name "Example Site" \
   --domain example.com \
-  --root .ego-browser/learnings
+  --root assets/learnings
 ```
 
 Then fill in:
@@ -240,13 +250,13 @@ Rules for tools:
 Run the static validator:
 
 ```bash
-node skills/site-learning/scripts/validate-site-learning.mjs .ego-browser/learnings/example
+node scripts/validate-site-learning.mjs assets/learnings/example
 ```
 
 Then run a live test. Use at least two representative URLs or states:
 
 ```bash
-EGO_BROWSER_AGENT_WORKSPACE="$PWD/.ego-browser" ego-browser nodejs <<'EOF'
+./bin/ego-learn nodejs <<'EOF'
 const task = await taskSpace("test example learning");
 const result = await runSiteTool("example", "open_and_extract", {
   url: "https://example.com/first-page",
@@ -296,10 +306,12 @@ When the site changes:
 
 ## References
 
+- `references/site-catalog.md` — index of included site packs and available tools
 - `references/exploration-playbook.md` — detailed exploration commands and page inventory recipes
 - `references/selector-strategy.md` — good vs bad selectors, with examples
 - `references/learning-format.md` — full manifest schema and pack layout
-- `assets/` — copyable templates
+- `assets/templates/` — copyable templates
+- `assets/learnings/` — runtime site learning packs
 - `scripts/new-site-learning.mjs` — scaffold a new pack
 - `scripts/validate-site-learning.mjs` — static validation
 
@@ -307,7 +319,7 @@ When the site changes:
 
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
-| `siteSkills()` returns `[]` | `EGO_BROWSER_AGENT_WORKSPACE` not set, or wrong root | Point it at the directory containing `learnings/` |
+| `siteSkills()` returns `[]` | `EGO_BROWSER_AGENT_WORKSPACE` not set, or wrong root | Point it at `<skill-dir>/assets` (the directory containing `learnings/`) |
 | `runSiteTool` says `site skill not found` | site id mismatch or wrong root | Ensure directory name equals manifest `id` |
 | Tool works on one page but not another | selector is too specific or page variant differs | Add a fallback selector chain and test both variants |
 | Extraction returns empty on some pages | content rendered late or lazy-loaded | Wait for the container, scroll once, then extract |

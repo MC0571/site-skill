@@ -3,12 +3,13 @@
 # It also injects the workspace into the Node script itself, because the
 # bundled ego lite runtime may not inherit shell environment variables.
 set -e
-DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+SKILL_DIR=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+WORKSPACE="$SKILL_DIR/assets"
 
 escape_single() {
   printf "%s" "$1" | sed "s/'/'\\\\''/g"
 }
-WORKSPACE_ESCAPED=$(escape_single "$DIR")
+WORKSPACE_ESCAPED=$(escape_single "$WORKSPACE")
 PRELUDE="process.env.EGO_BROWSER_AGENT_WORKSPACE = '$WORKSPACE_ESCAPED';"
 
 REAL="${EGO_BROWSER_REAL:-}"

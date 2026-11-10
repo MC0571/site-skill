@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const assets = path.resolve(here, "..", "assets");
+const templates = path.resolve(here, "..", "assets", "templates");
 
 const { values } = parseArgs({
   options: {
@@ -23,7 +23,7 @@ const domains = (values.domain || []).map((value) => value.trim()).filter(Boolea
 
 if (!siteId || !siteName || domains.length === 0) {
   console.error(
-    "usage: node skills/site-learning/scripts/new-site-learning.mjs " +
+    "usage: node scripts/new-site-learning.mjs " +
       "--site-id <id> --name <name> --domain <domain> [--domain <domain>...] [--root <learnings-root>]"
   );
   process.exit(2);
@@ -34,7 +34,7 @@ if (!/^[a-z0-9][a-z0-9-]*$/.test(siteId)) {
   process.exit(2);
 }
 
-const root = path.resolve(values.root || path.join(process.cwd(), ".ego-browser", "learnings"));
+const root = path.resolve(values.root || path.join(here, "..", "assets", "learnings"));
 const siteDir = path.join(root, siteId);
 
 try {
@@ -52,7 +52,7 @@ function today() {
 }
 
 async function render(templateName, replacements) {
-  let content = await readFile(path.join(assets, templateName), "utf8");
+  let content = await readFile(path.join(templates, templateName), "utf8");
   for (const [key, value] of Object.entries(replacements)) {
     content = content.split(key).join(value);
   }
@@ -95,4 +95,4 @@ console.log(`created site learning scaffold: ${siteDir}`);
 console.log("next steps:");
 console.log("1. Fill in notes/overview.md with the site map and selectors.");
 console.log("2. Implement browser-tools/extract-page.js and tools/open-and-extract.js.");
-console.log(`3. Validate: node skills/site-learning/scripts/validate-site-learning.mjs ${siteDir}`);
+console.log(`3. Validate: node scripts/validate-site-learning.mjs ${siteDir}`);

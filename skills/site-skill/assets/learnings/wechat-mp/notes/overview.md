@@ -28,7 +28,7 @@ Last verified: 2026-11-10
 
 ```js
 process.env.EGO_BROWSER_AGENT_WORKSPACE =
-  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<path-to-site-skill>/.ego-browser";
+  process.env.EGO_BROWSER_AGENT_WORKSPACE || "<path-to-skills/site-skill>/assets";
 ```
 
 然后调用：

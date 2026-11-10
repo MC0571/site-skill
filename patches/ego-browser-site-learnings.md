@@ -52,16 +52,10 @@ Before exploring a site for a browser task:
    ```js
    process.env.EGO_BROWSER_AGENT_WORKSPACE =
      process.env.EGO_BROWSER_AGENT_WORKSPACE ||
-     `${process.env.HOME}/.local/share/ego-site-learning`;
+     "<absolute path to skills/site-skill>/assets";
    ```
 
-   如果使用仓库本身的 `.ego-browser`，把它设为：
-
-   ```js
-   process.env.EGO_BROWSER_AGENT_WORKSPACE =
-     process.env.EGO_BROWSER_AGENT_WORKSPACE ||
-     "/absolute/path/to/site-skill/.ego-browser";
-   ```
+   `EGO_BROWSER_AGENT_WORKSPACE` 必须指向包含 `learnings/` 的目录，即 `skills/site-skill/assets`。
 
 2. Check whether a matching pack exists for the target URL:
 
@@ -76,7 +70,7 @@ Before exploring a site for a browser task:
    const result = await runSiteTool("<site-id>", "<tool-name>", { /* args */ });
    ```
 
-4. If no pack matches and the site will be reused, load the `site-learning` skill and follow its workflow to create one. Do not create a pack for a one-off page.
+4. If no pack matches and the site will be reused, load the `site-skill` skill and follow its workflow to create one. Do not create a pack for a one-off page.
 
 5. If `siteSkillsForUrl()` returns an empty list for a site you know has a pack, first verify that `EGO_BROWSER_AGENT_WORKSPACE` points to the directory containing `learnings/`. Do not assume no packs exist.
 
@@ -106,7 +100,7 @@ Before exploring a site for a browser task:
 1. Set `process.env.EGO_BROWSER_AGENT_WORKSPACE` inside the Node script (not just shell export).
 2. Call `siteSkillsForUrl(url)` and `learnContext(url)`.
 3. If a matching pack exists, use `runSiteTool(siteId, toolName, args)` instead of rediscovering selectors.
-4. If no pack matches and the site will be reused, load the `site-learning` skill and create one.
+4. If no pack matches and the site will be reused, load the `site-skill` skill and create one.
 5. If a known pack is not found, verify `EGO_BROWSER_AGENT_WORKSPACE` points to the directory containing `learnings/`.
 
 Site learning tools are read-only by default.
