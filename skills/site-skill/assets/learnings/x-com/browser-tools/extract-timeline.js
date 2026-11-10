@@ -101,10 +101,13 @@ async function (args) {
       ? photoImages
       : [...el.querySelectorAll("img")].filter(isPostImage).map(imageData);
 
-    const videos = [...el.querySelectorAll("video")]
+    const videoContainerSelector = '[data-testid="videoComponent"], [data-testid="videoPlayer"]';
+    const videos = [...el.querySelectorAll(`video, ${videoContainerSelector}`)]
       .filter(isOwn)
+      .filter((node) => node.tagName === "VIDEO" ||
+        (!node.querySelector("video") && !node.parentElement.closest(videoContainerSelector)))
       .map((video) => {
-        const component = video.closest('[data-testid="videoComponent"], [data-testid="videoPlayer"]');
+        const component = video.closest(videoContainerSelector);
         const posterImg = [...(component?.querySelectorAll("img") || [])].find(isOwn);
         const sourceUrl = video.currentSrc || video.src || video.getAttribute("src") || "";
         const poster = video.poster || video.getAttribute("poster") ||
@@ -117,9 +120,7 @@ async function (args) {
       .filter((video) => video.url || video.poster);
 
     const socialContext = clean(findOwn('[data-testid="socialContext"]')?.innerText || "");
-    const isPromoted =
-      /(?:^|\b)(?:Promoted|Ad)(?:\b|$)|广告/i.test(socialContext) ||
-      [...el.querySelectorAll('span, [data-testid="socialContext"]')]
+    const isPromoted = [...el.querySelectorAll('span, [data-testid="socialContext"]')]
         .filter(isOwn)
         .filter((node) => node !== bodyNode && !bodyNode?.contains(node))
         .filter((node) => !node.closest('[data-testid="User-Name"], a[href]'))

@@ -29,7 +29,7 @@ Last verified: 2026-11-10
 - `metrics` contains `reply`, `repost`, `like`, `view`, `quote`, `bookmark` as visible strings, preserving formats such as `1,317` and `41万`. Never replace a compact visible count with the numeric value in its ARIA label.
 - Missing counts are empty strings in extraction and `not displayed` in report rows. A missing or icon-only control is not a visible zero. Do not infer quotes from reposts or inspect hidden menus.
 - `images` contains attached still images, excluding avatars, quoted cards and anything inside `videoComponent` / `videoPlayer`.
-- `videos[].poster` contains the rendered video poster/thumbnail. A `blob:` playback URL is local to that session and is returned as an empty `url`; do not export it as a reusable media link. Poster URLs can expire; retain the post URL as the source.
+- `videos[].poster` contains the rendered video poster/thumbnail, including a video container's cover image before its `<video>` player mounts. Nested video containers represent one video, not duplicate posters. A `blob:` playback URL is local to that session and is returned as an empty `url`; do not export it as a reusable media link. Poster URLs can expire; retain the post URL as the source.
 
 ## Pinned posts
 

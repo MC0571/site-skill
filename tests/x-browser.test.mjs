@@ -443,6 +443,47 @@ test('timeline ignores hidden metric controls and chooses a rendered duplicate',
   assert.equal(result.items[0].metrics.repost, '0');
 });
 
+test('timeline distinguishes repost names from independent advertising labels', async () => {
+  const contexts = [
+    { html: '广告研究员 reposted', promoted: false },
+    { html: 'Ad agency reposted', promoted: false },
+    { html: '<a href="/alice"><span>Ad</span></a> reposted', promoted: false },
+    { html: '<a href="/alice"><span>广告</span></a> 已转帖', promoted: false },
+    ...['Promoted', 'Ad', '广告'].map(label => ({ html: `<span>${label}</span>`, promoted: true })),
+  ];
+  const result = await extract('extract-timeline.js', contexts.map((context, index) => `
+    <article data-testid="tweet">
+      <a href="https://x.com/bob/status/${100 + index}"><time>Nov 10</time></a>
+      <div data-testid="socialContext">${context.html}</div>
+      <div data-testid="tweetText">A normal post about Ad campaigns and 广告.</div>
+    </article>
+  `).join(''));
+
+  assert.deepEqual(result.items.map(item => item.isPromoted), contexts.map(context => context.promoted));
+});
+
+test('timeline retains poster-only video containers without duplicates or quoted media', async () => {
+  const result = await extract('extract-timeline.js', `
+    <article data-testid="tweet">
+      <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+      <div data-testid="tweetText">Two videos before their players mount.</div>
+      <div data-testid="videoComponent">
+        <div data-testid="videoPlayer"><img src="https://example.com/poster-one.jpg"></div>
+      </div>
+      <div data-testid="videoPlayer"><img src="https://example.com/poster-two.jpg"></div>
+      <div data-testid="quoteTweet">
+        <div data-testid="videoComponent"><img src="https://example.com/quoted-poster.jpg"></div>
+      </div>
+    </article>
+  `);
+
+  assert.deepEqual(result.items[0].images, []);
+  assert.deepEqual(result.items[0].videos, [
+    { url: '', poster: 'https://example.com/poster-one.jpg' },
+    { url: '', poster: 'https://example.com/poster-two.jpg' },
+  ]);
+});
+
 test('timeline separates own photos and video posters from avatars, video chrome and quoted media', async () => {
   const result = await extract('extract-timeline.js', `
     <main data-testid="primaryColumn">
