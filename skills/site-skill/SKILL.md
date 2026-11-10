@@ -1,8 +1,9 @@
 ---
 name: site-skill
-description: Use before any browser task on a known or recurring site, and when learning an unfamiliar site. This skill covers the full site-knowledge lifecycle: discover existing site learning packs, apply them with siteSkillsForUrl/learnContext/runSiteTool, explore and distill new site knowledge into manifest.json + notes + node tools + browser tools, validate and maintain packs under skills/site-skill/assets/learnings. Trigger phrases include "站点学习", "站点知识", "site skill", "site learning", "下次不用重新探索", "build a site learning pack". Not for one-off browsing tasks where nothing needs to be reused.
+description: >-
+  Use before any browser task on a known or recurring site, and when learning an unfamiliar site. This skill covers the full site-knowledge lifecycle: discover existing site learning packs, apply them with siteSkillsForUrl/learnContext/runSiteTool, explore and distill new site knowledge into manifest.json + notes + node tools + browser tools, validate and maintain packs under skills/site-skill/assets/learnings. Trigger phrases include "站点学习", "站点知识", "site skill", "site learning", "下次不用重新探索", "build a site learning pack". Not for one-off browsing tasks where nothing needs to be reused.
 metadata:
-  version: "2.0.0"
+  version: "2.1.1"
   date: "2026-11-10"
 ---
 

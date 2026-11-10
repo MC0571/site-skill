@@ -7,7 +7,7 @@ Last verified: 2026-11-10
 | site-id | 站点 | 域名 | 主要工具 | 说明 |
 | --- | --- | --- | --- | --- |
 | `wechat-mp` | 微信公众号文章 | `mp.weixin.qq.com` | `extract_article` | 标准图文、图片分享型文章；提取标题、公众号、作者、发布时间、正文块和图片链接 |
-| `x-com` | X (Twitter) | `x.com`、`twitter.com` | `get_trends`、`search_posts`、`get_post`、`get_thread`、`get_article`、`get_history`、`get_post_replies`、`get_user_posts`、`get_user_replies`、`get_user_connections`、`get_user_profile`、`get_timeline_posts`、`search_users` | 趋势、搜索、帖子详情、Thread、长文 Article、书签/喜欢、评论、用户资料、用户帖子/回复、关注列表；兼容已登录和访客布局 |
+| `x-com` | X (Twitter) | `x.com`、`twitter.com` | `get_trends`、`search_posts`、`get_post`、`get_thread`、`get_article`、`get_history`、`get_post_replies`、`get_user_posts`、`extract_profile_posts_report`、`get_user_replies`、`get_user_connections`、`get_user_profile`、`get_timeline_posts`、`search_users` | 趋势、搜索、帖子详情、Thread、长文 Article、书签/喜欢、评论、用户资料、用户帖子/回复、关注列表；Profile 报告数据保留原文段落、可见计数、展示顺序、视频海报和逐行来源 |
 
 ## 使用前
 

@@ -216,7 +216,7 @@
       }
     },
     "get_user_posts": {
-      "description": "Read the posts list of an X user profile.",
+      "description": "Read posts authored by an X profile, restoring original text and expanding visible long-post controls before each extraction.",
       "path": "tools/get-user-posts.js",
       "callable": "getUserPosts",
       "args": {
@@ -233,12 +233,38 @@
         "maxScrolls": {
           "type": "integer",
           "required": false,
-          "description": "Maximum number of scroll rounds to load more posts, default 5, max 20."
+          "description": "Maximum number of scroll rounds to load more posts, default 60, max 120. Zero extracts only the first batch."
         }
       },
       "returns": {
         "type": "object",
-        "description": "Object with ok, username, itemCount and items authored by the user."
+        "description": "Object with ok, username, itemCount, items, scrollRounds and stopReason. Items preserve paragraphs, visible metrics, media and checkedAt."
+      }
+    },
+    "extract_profile_posts_report": {
+      "description": "Collect an X profile timeline in displayed order, including reposts and thread context, and return source-linked rows for CSV/Markdown reports. Only toggles Show original/Show more; never opens missing metrics or engages with posts.",
+      "path": "tools/get-user-posts.js",
+      "callable": "extractProfilePostsReport",
+      "args": {
+        "username": {
+          "type": "string",
+          "required": true,
+          "description": "X username, with or without @, or an X profile URL."
+        },
+        "maxItems": {
+          "type": "integer",
+          "required": false,
+          "description": "Maximum unique displayed posts to record, default 50, max 100."
+        },
+        "maxScrolls": {
+          "type": "integer",
+          "required": false,
+          "description": "Maximum scroll rounds, default 60, max 120. Zero extracts only the first batch."
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "Object with ok, source_url, checked_at, access_status, posts_recorded, goal_reached, stop_reason, scroll_rounds and rows. Rows use visible counts or not displayed and flag remaining translated/truncated text with needs_review. Blocked runs retain previously captured rows."
       }
     },
     "get_user_replies": {
@@ -400,7 +426,7 @@
       },
       "returns": {
         "type": "object",
-        "description": "Object with ok, itemCount, items and emptyState."
+        "description": "Object with ok, itemCount, items and emptyState. Items retain paragraph text, links, visible reply/repost/like/view/quote/bookmark metrics, images, video posters, isTranslated and isTruncated. Missing metrics are empty strings. Does not click or navigate."
       }
     },
     "extract_replies": {

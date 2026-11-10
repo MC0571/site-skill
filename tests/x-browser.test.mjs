@@ -8,8 +8,15 @@ const browserTools = new URL('../skills/site-skill/assets/learnings/x-com/browse
 
 async function extract(tool, html, url = 'https://x.com/alice/status/100', args = {}) {
   const { document } = parseHTML(`<!doctype html><html><head><title>X</title></head><body>${html}</body></html>`);
+  Object.getPrototypeOf(document.body).getClientRects = function () {
+    for (let node = this; node; node = node.parentElement) {
+      if (node.hasAttribute('hidden') || node.style?.display === 'none') return [];
+    }
+    return [{ width: 1, height: 1 }];
+  };
+  const getComputedStyle = (node) => ({ visibility: node.style.visibility || 'visible' });
   const source = await readFile(new URL(tool, browserTools), 'utf8');
-  const run = new Function('document', 'location', `return (${source});`)(document, new URL(url));
+  const run = new Function('document', 'location', 'getComputedStyle', `return (${source});`)(document, new URL(url), getComputedStyle);
   return run(args);
 }
 
@@ -332,3 +339,272 @@ for (const maxPosts of [1, 2, 10]) {
     assert.deepEqual(result.declaredParts, { part: 1, total: 3 });
   });
 }
+
+test('timeline preserves body line breaks and links without absorbing quoted cards', async () => {
+  const result = await extract('extract-timeline.js', `
+    <main data-testid="primaryColumn">
+      <article data-testid="tweet">
+        <a href="https://x.com/bob/status/999">Quoted permalink appears first</a>
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <a href="https://x.com/alice/status/100"><time datetime="2026-11-10T01:00:00Z">Nov 10</time></a>
+        <div data-testid="tweetText">First paragraph <a href="https://x.com/bob">@bob</a><br><a href="https://example.com/read">Read more</a></div>
+        <div data-testid="socialContext"><span>Promoted</span></div>
+        <div data-testid="quoteTweet">
+          <div data-testid="tweetText">Quoted body from Bob</div>
+          <div data-testid="tweetPhoto"><img src="https://example.com/quoted.jpg" alt="Quoted media"></div>
+        </div>
+      </article>
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/bob">Bob</a><a href="/bob">@bob</a></div>
+        <a href="https://x.com/bob/status/200"><time datetime="2026-11-10T02:00:00Z">Nov 10</time></a>
+        <div data-testid="tweetText">Ad is a word in this body.</div>
+        <div data-testid="card.wrapper">
+          <div data-testid="socialContext"><span>Ad</span></div>
+          <div data-testid="tweetText">Quoted advertisement body</div>
+        </div>
+      </article>
+    </main>
+  `);
+
+  assert.deepEqual(result.items.map((item) => item.id), ['100', '200']);
+  const [alice, bob] = result.items;
+  assert.equal(alice.text, 'First paragraph @bob\nRead more');
+  assert.deepEqual(alice.links, [
+    { text: '@bob', url: 'https://x.com/bob' },
+    { text: 'Read more', url: 'https://example.com/read' },
+  ]);
+  assert.equal(alice.socialContext, 'Promoted');
+  assert.equal(alice.isPromoted, true);
+  assert.deepEqual(alice.images, []);
+  assert.equal(bob.text, 'Ad is a word in this body.');
+  assert.equal(bob.isPromoted, false);
+});
+
+test('timeline metrics use visible text and never fall back to ARIA labels or quoted cards', async () => {
+  const result = await extract('extract-timeline.js', `
+    <main data-testid="primaryColumn">
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Visible counts</div>
+        <button data-testid="reply" aria-label="413000 replies">41万</button>
+        <button data-testid="retweet" aria-label="2100000 reposts">210万</button>
+        <button data-testid="like" aria-label="8100 likes">8.1千</button>
+        <a href="https://x.com/alice/status/100/analytics" aria-label="990000 views">99万</a>
+        <button data-testid="quote" aria-label="120 quotes">12</button>
+      </article>
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/bob">Bob</a><a href="/bob">@bob</a></div>
+        <a href="https://x.com/bob/status/200"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Missing counts</div>
+        <div data-testid="tweet">
+          <button data-testid="reply" aria-label="999 replies">999</button>
+          <button data-testid="retweet" aria-label="888 reposts">888</button>
+          <button data-testid="like" aria-label="777 likes">777</button>
+        </div>
+      </article>
+    </main>
+  `);
+
+  assert.deepEqual(result.items[0].metrics, {
+    reply: '41万',
+    repost: '210万',
+    like: '8.1千',
+    view: '99万',
+    quote: '12',
+    bookmark: '',
+  });
+  assert.deepEqual(result.items[1].metrics, {
+    reply: '',
+    repost: '',
+    like: '',
+    view: '',
+    quote: '',
+    bookmark: '',
+  });
+});
+
+test('timeline ignores hidden metric controls and chooses a rendered duplicate', async () => {
+  const result = await extract('extract-timeline.js', `
+    <article data-testid="tweet">
+      <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+      <div data-testid="tweetText">A public post</div>
+      <button data-testid="reply" hidden>123</button>
+      <div style="display: none"><button data-testid="like">999</button></div>
+      <button data-testid="like">1,317</button>
+      <button data-testid="quote" style="visibility: hidden">456</button>
+      <button data-testid="retweet">0</button>
+    </article>
+  `);
+
+  assert.equal(result.items[0].metrics.reply, '');
+  assert.equal(result.items[0].metrics.like, '1,317');
+  assert.equal(result.items[0].metrics.quote, '');
+  assert.equal(result.items[0].metrics.repost, '0');
+});
+
+test('timeline distinguishes repost names from independent advertising labels', async () => {
+  const contexts = [
+    { html: '广告研究员 reposted', promoted: false },
+    { html: 'Ad agency reposted', promoted: false },
+    { html: '<a href="/alice"><span>Ad</span></a> reposted', promoted: false },
+    { html: '<a href="/alice"><span>广告</span></a> 已转帖', promoted: false },
+    ...['Promoted', 'Ad', '广告'].map(label => ({ html: `<span>${label}</span>`, promoted: true })),
+  ];
+  const result = await extract('extract-timeline.js', contexts.map((context, index) => `
+    <article data-testid="tweet">
+      <a href="https://x.com/bob/status/${100 + index}"><time>Nov 10</time></a>
+      <div data-testid="socialContext">${context.html}</div>
+      <div data-testid="tweetText">A normal post about Ad campaigns and 广告.</div>
+    </article>
+  `).join(''));
+
+  assert.deepEqual(result.items.map(item => item.isPromoted), contexts.map(context => context.promoted));
+});
+
+test('timeline retains poster-only video containers without duplicates or quoted media', async () => {
+  const result = await extract('extract-timeline.js', `
+    <article data-testid="tweet">
+      <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+      <div data-testid="tweetText">Two videos before their players mount.</div>
+      <div data-testid="videoComponent">
+        <div data-testid="videoPlayer"><img src="https://example.com/poster-one.jpg"></div>
+      </div>
+      <div data-testid="videoPlayer"><img src="https://example.com/poster-two.jpg"></div>
+      <div data-testid="quoteTweet">
+        <div data-testid="videoComponent"><img src="https://example.com/quoted-poster.jpg"></div>
+      </div>
+    </article>
+  `);
+
+  assert.deepEqual(result.items[0].images, []);
+  assert.deepEqual(result.items[0].videos, [
+    { url: '', poster: 'https://example.com/poster-one.jpg' },
+    { url: '', poster: 'https://example.com/poster-two.jpg' },
+  ]);
+});
+
+test('timeline separates own photos and video posters from avatars, video chrome and quoted media', async () => {
+  const result = await extract('extract-timeline.js', `
+    <main data-testid="primaryColumn">
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <div data-testid="Tweet-User-Avatar"><img src="https://x.com/alice/profile_images/avatar.jpg" alt="Avatar"></div>
+        <a href="https://x.com/alice/status/100"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Media post</div>
+        <div data-testid="tweetPhoto"><img src="https://example.com/own-photo.jpg" alt="Own photo"></div>
+        <div data-testid="videoComponent">
+          <img src="https://example.com/video-poster.jpg" alt="Video poster">
+          <video src="blob:https://x.com/video-stream"></video>
+        </div>
+        <div data-testid="videoPlayer">
+          <img src="https://example.com/player-poster.jpg" alt="Player poster">
+          <video src="https://example.com/video.mp4"></video>
+        </div>
+        <div data-testid="quoteTweet">
+          <div data-testid="tweetText">Quoted media body</div>
+          <div data-testid="tweetPhoto"><img src="https://example.com/quoted-photo.jpg" alt="Quoted photo"></div>
+          <video src="https://example.com/quoted-video.mp4" poster="https://example.com/quoted-poster.jpg"></video>
+        </div>
+      </article>
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/bob">Bob</a><a href="/bob">@bob</a></div>
+        <a href="https://x.com/bob/status/200"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Video only</div>
+        <div data-testid="Tweet-User-Avatar"><img src="https://example.com/avatar-without-profile-path.jpg" alt="Avatar"></div>
+        <div data-testid="videoComponent">
+          <img src="https://example.com/fallback-video-poster.jpg" alt="Fallback poster">
+          <video src="blob:https://x.com/fallback-stream"></video>
+        </div>
+        <div data-testid="card.wrapper">
+          <div data-testid="tweetPhoto"><img src="https://example.com/fallback-quoted-photo.jpg" alt="Quoted fallback photo"></div>
+        </div>
+      </article>
+    </main>
+  `);
+
+  assert.deepEqual(result.items[0].images, [
+    { url: 'https://example.com/own-photo.jpg', alt: 'Own photo' },
+  ]);
+  assert.deepEqual(result.items[0].videos, [
+    { url: '', poster: 'https://example.com/video-poster.jpg' },
+    { url: 'https://example.com/video.mp4', poster: 'https://example.com/player-poster.jpg' },
+  ]);
+  assert.deepEqual(result.items[1].images, []);
+  assert.deepEqual(result.items[1].videos, [
+    { url: '', poster: 'https://example.com/fallback-video-poster.jpg' },
+  ]);
+});
+
+test('timeline uses the own timestamp permalink, keeps DOM order and reports display toggles', async () => {
+  const result = await extract('extract-timeline.js', `
+    <main data-testid="primaryColumn">
+      <article data-testid="tweet">
+        <a href="https://x.com/bob/status/999">Quoted link without a timestamp</a>
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <div data-testid="tweetText">Missing own permalink</div>
+      </article>
+      <article data-testid="tweet">
+        <a href="https://x.com/bob/status/999">Another quote link</a>
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <a href="https://x.com/alice/status/300"><time>Nov 10</time></a>
+        <div data-testid="tweetText">First displayed</div>
+        <div data-testid="tweet-text-show-more-link"></div>
+        <div aria-label="显示原文"></div>
+      </article>
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/bob">Bob</a><a href="/bob">@bob</a></div>
+        <a href="https://x.com/bob/status/100"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Second displayed</div>
+        <button>Show more</button>
+        <div aria-label="Show original">译</div>
+      </article>
+      <article data-testid="tweet">
+        <div data-testid="User-Name"><a href="/alice">Alice</a><a href="/alice">@alice</a></div>
+        <a href="https://x.com/alice/status/200"><time>Nov 10</time></a>
+        <div data-testid="tweetText">Third displayed</div>
+        <div data-testid="quoteTweet">
+          <div data-testid="tweet-text-show-more-link"></div>
+          <div aria-label="Show original"></div>
+        </div>
+      </article>
+    </main>
+  `);
+
+  assert.deepEqual(result.items.map((item) => item.id), ['300', '100', '200']);
+  assert.deepEqual(result.items.map((item) => item.url), [
+    'https://x.com/alice/status/300',
+    'https://x.com/bob/status/100',
+    'https://x.com/alice/status/200',
+  ]);
+  assert.deepEqual(result.items.map((item) => [item.isTruncated, item.isTranslated]), [
+    [true, true],
+    [true, true],
+    [false, false],
+  ]);
+});
+
+test('guest timeline retains plain article extraction and its own timestamp permalink', async () => {
+  const result = await extract('extract-timeline.js', `
+    <main data-testid="primaryColumn">
+      <article>
+        <a href="https://x.com/bob/status/999">Quoted link appears first</a>
+        <a href="/alice">Alice</a><a href="/alice">@alice</a>
+        <a href="https://x.com/alice/status/100"><time datetime="2026-11-10T01:00:00Z">Nov 10</time></a>
+        <div dir="auto">Guest body <a href="https://x.com/bob">@bob</a><br>Second line</div>
+      </article>
+      <article>
+        <a href="https://x.com/alice/status/200">No timestamp</a>
+        <div dir="auto">This card has no own ID.</div>
+      </article>
+    </main>
+  `);
+
+  assert.equal(result.itemCount, 1);
+  assert.equal(result.items[0].id, '100');
+  assert.equal(result.items[0].url, 'https://x.com/alice/status/100');
+  assert.equal(result.items[0].displayName, 'Alice');
+  assert.equal(result.items[0].handle, '@alice');
+  assert.equal(result.items[0].text, 'Guest body @bob\nSecond line');
+  assert.deepEqual(result.items[0].links, [{ text: '@bob', url: 'https://x.com/bob' }]);
+});
