@@ -6,7 +6,8 @@
     "api.github.com"
   ],
   "notes": [
-    "notes/overview.md"
+    "notes/overview.md",
+    "notes/bulk-lists.md"
   ],
   "nodeTools": {
     "get_stars": {
@@ -209,7 +210,95 @@
       },
       "returns": {
         "type": "object",
-        "description": "包含 ok、scope=all_pages、access=public|token_visible、items、itemCount、totalLoaded、pagesRead、complete、truncated、stopReason、nextUrl；条目含仓库信息、id 和精确 starredAt。到达此接口末页不表示 token 能看到全部私有收藏。HTTP/响应失败明确返回 reason，保留已读条目且不重试；网络异常抛出。"
+        "description": "包含 ok、scope=all_pages、access=public|token_visible、items、itemCount、totalLoaded、pagesRead、complete、truncated、stopReason、nextUrl；条目含仓库信息、数字 id、GraphQL nodeId 和精确 starredAt。到达此接口末页不表示 token 能看到全部私有收藏。HTTP/响应失败明确返回 reason，保留已读条目且不重试；网络异常抛出。"
+      }
+    },
+    "get_star_lists_api": {
+      "description": "使用调用进程的 GITHUB_TOKEN 只读获取当前账号全部列表元信息与成员，列表及成员均沿真实 GraphQL 游标分页；不读取浏览器凭据。",
+      "path": "tools/lists-api.js",
+      "callable": "getStarListsApi",
+      "args": {},
+      "returns": {
+        "type": "object",
+        "description": "ok、complete、scope=all_pages、access=token_visible、viewer.login、listCount、lists。每项含 GraphQL id、name、description、isPrivate、slug、url、items；成员含 id、databaseId、nameWithOwner。失败返回 ok=false、complete=false 和已读数据；token可见范围不等于所有私有资源。"
+      }
+    },
+    "batch_classify_stars": {
+      "description": "使用 GITHUB_TOKEN 批量归类当前账号已加星且可访问的仓库；默认追加保留其他归属，显式 replace 会移除未指定归属。每批10条，写前校验全部输入，核对每条回执；必须 confirm: true。",
+      "path": "tools/lists-api.js",
+      "callable": "batchClassifyStars",
+      "args": {
+        "assignments": {
+          "type": "array",
+          "required": true,
+          "description": "非空数组；每项为 {repositoryId: get_stars_api 返回的 nodeId, listIds: 非空 GraphQL 列表ID数组}。同仓库仅一项，可加入多个列表。"
+        },
+        "mode": {
+          "type": "string",
+          "required": false,
+          "description": "append（默认，保留现有归属）或 replace（以给定列表集合替换该仓库全部归属）；不改变星标。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "必须为 true；仅在用户已授权相应账号写入时设置。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "ok、viewer、mode、results（repositoryId、listIds、changed）、pendingRepositoryIds、uncertainRepositoryIds。部分成功/HTTP/网络/GraphQL错误时 ok=false 并停止，保留已验证进度，不重试；pending包含未确认项，重新读取状态后才能恢复。"
+      }
+    },
+    "merge_star_lists": {
+      "description": "使用 GITHUB_TOKEN 将当前账号多个列表成员并入一个现有目标，保留其他仓库归属；重读验证完整并集后删除源列表，目标名称、描述和可见性不变。会删除源列表，必须 confirm: true。",
+      "path": "tools/lists-api.js",
+      "callable": "mergeStarLists",
+      "args": {
+        "sourceListIds": {
+          "type": "array",
+          "required": true,
+          "description": "非空源列表 GraphQL ID 数组，来自 get_star_lists_api；不得包含目标。"
+        },
+        "targetListId": {
+          "type": "string",
+          "required": true,
+          "description": "保留的目标列表 GraphQL ID，必须属于当前账号。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "必须为 true；仅在用户已授权相应账号写入时设置。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "ok、phase（read|classify|verify|cleanup|complete）、classification、cleanup 及 sourceListIds/targetListId。任一步失败即停止；归类或覆盖验证失败不删除源列表，部分删除保留进度。"
+      }
+    },
+    "cleanup_star_lists": {
+      "description": "使用 GITHUB_TOKEN 清理当前账号列表：仅允许空列表，或其成员已全部存在于指定保留列表中；核验后删除，冷读确认其余列表及成员不变。会删除列表，必须 confirm: true。",
+      "path": "tools/lists-api.js",
+      "callable": "cleanupStarLists",
+      "args": {
+        "listIds": {
+          "type": "array",
+          "required": true,
+          "description": "要删除的非空 GraphQL 列表 ID 数组，来自 get_star_lists_api。"
+        },
+        "coveredByListIds": {
+          "type": "array",
+          "required": false,
+          "description": "保留列表 GraphQL ID 数组，默认空；其成员并集必须覆盖所有待删列表成员。不得与 listIds 重叠。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "必须为 true；仅在用户已授权相应账号写入时设置。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "ok、viewer、deletedListIds、pendingListIds、uncertainListIds；未覆盖返回 source_members_not_covered 与 uncoveredRepositoryIds，且不删除。写入或冷读失败返回明确原因与已验证进度，不自动重试。"
       }
     }
   },

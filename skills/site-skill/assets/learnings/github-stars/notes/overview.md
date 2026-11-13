@@ -1,10 +1,10 @@
 # GitHub Stars
 
-Last verified: 2026-11-13
+Last verified: 2026-11-14
 
 ## 范围与入口
 
-当前登录会话的“我的星 / Your Stars”，以及同结构的用户 Stars 页面。读取工具负责读取内容、搜索、筛选和翻页；Lists 写工具负责追加已加星仓库、创建列表和编辑列表。三个写工具都要求 `confirm: true`，不封装删除或移除列表归属、取消星标或自动加星。
+当前登录会话的“我的星 / Your Stars”，以及同结构的用户 Stars 页面。浏览器工具负责读取、搜索、筛选、翻页，以及追加已加星仓库、创建列表和编辑列表；Token API 提供完整列表快照、批量归类、合并和清理。所有写工具都要求 `confirm: true`；用户已明确授权本次操作时，不重复询问。批量归类的显式 replace 会移除未指定的归属，合并与清理会删除符合条件的列表；不取消星标或自动加星。完整流程、接口契约与恢复规则见 [bulk-lists.md](bulk-lists.md)。
 
 - 当前账号入口：`https://github.com/stars`。
 - 用户摘要：`/stars/<user>`；侧栏与默认页使用同一种布局。
@@ -15,7 +15,7 @@ Last verified: 2026-11-13
 - 列表详情：`/stars/<user>/lists/<slug>`。
 - 仓库详情：卡片 `h3 a` 指向 `/<owner>/<repo>`；详情页不在提取工具范围内。
 
-读取工具只接受上述 Stars 路由；`add_repository_to_lists` 则接受 `https://github.com/<owner>/<repo>` 仓库完整 URL。其他 GitHub 页面也可能匹配域名发现，但不代表其结构受支持。不要把具体用户名、仓库清单或列表名写进学习包。
+页面读取工具只接受上述 Stars 路由；`add_repository_to_lists` 则接受 `https://github.com/<owner>/<repo>` 仓库完整 URL。其他 GitHub 页面也可能匹配域名发现，但不代表其结构受支持。不要把具体用户名、仓库清单或列表名写进学习包。
 
 `get_stars` 和 `extract_stars` 支持现代 Stars、Profile Stars、列表详情三种布局，返回 `layout: stars|profile|list`；列表详情额外返回 `list` 元信息。`get_list_repositories` 要求列表详情 URL，复用 `get_stars` 的分页与截断规则。
 
@@ -64,7 +64,7 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 每张仓库卡片包含隐藏的 Lists dialog，其中预置错误和空列表文案。不能扫描整页文本来判断失败，也不能直接读取卡片的全部段落或 `textContent` 当作仓库描述。
 
-## 列表与写入边界
+## 浏览器列表工具与写入边界
 
 每张仓库卡片有 “Add this repository to a list” 入口，使用卡片内 `select-panel button[aria-haspopup="dialog"]`，打开的是 Lists dialog。该入口用于管理收藏归类，不等同于浏览全部 Stars。不要持久化带 repository ID 的 dialog ID。
 
@@ -72,7 +72,7 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 `create_list` 接受 1–32 字符的 `name`、最长 160 字符且默认空字符串的 `description`、默认 `true` 的 `isPrivate` 和 `confirm: true`。工具只创建列表，不自动添加仓库；名称重复时返回错误。成功结果为 `ok`、`name`、`url`、`isPrivate` 和 `description`。
 
-三个写工具都使用浏览器现有 GitHub 会话读取页面表单并提交，不保存 cookie、CSRF token 或其他会话值；提交后重新读取页面，以实际归属或列表状态验证结果。学习包不记录真实账号、列表名或仓库名。
+上述三个浏览器写工具都使用现有 GitHub 会话读取页面表单并提交，不保存 cookie、CSRF token 或其他会话值；提交后重新读取页面，以实际归属或列表状态验证结果。学习包不记录真实账号、列表名或仓库名。
 
 仓库详情页使用 React：已加星状态由 `button[aria-label="Unstar <owner>/<repo>"]` 表示。列表选项通过 `GET /<owner>/<repo>/lists?experimental=1`、`Accept: text/fragment+html` 读取；`[role="option"][data-value]` 提供列表 ID，`aria-selected` 提供归属状态。
 
@@ -90,7 +90,7 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 官方文档：[Starring](https://docs.github.com/en/rest/activity/starring?apiVersion=2026-03-10)。`GET https://api.github.com/users/<username>/starred` 支持 `sort=created|updated`、`direction=asc|desc`、`per_page`（最多 100）和 page。created 按加星时间排序，updated 按仓库最后 push 时间排序。请求 `Accept: application/vnd.github.star+json` 返回 `{starred_at, repo}`，可取得精确加星时间；示例 API 版本为 `2026-03-10`。`GET /user/starred` 是文档中的当前鉴权用户端点，本工具统一使用显式用户名端点。
 
-`get_stars_api` 要求 username，默认公开读取，省略 maxItems 自动沿官方 `Link: rel="next"` 读取至末页。官方分页链接实测可采用 `/user/<numeric-id>/starred`，应保留实际链接，不自行递增 page。工具只跟随 api.github.com 上同类 Stars 路径，按仓库 id 去重；返回 `starredAt`、仓库信息以及与页面读取一致的 complete / pagesRead / stopReason / nextUrl 语义。
+`get_stars_api` 要求 username，默认公开读取，省略 maxItems 自动沿官方 `Link: rel="next"` 读取至末页。官方分页链接实测可采用 `/user/<numeric-id>/starred`，应保留实际链接，不自行递增 page。工具只跟随 api.github.com 上同类 Stars 路径，按仓库 id 去重；返回数字 `id`、来自 `repo.node_id` 的 GraphQL `nodeId`、精确 `starredAt`、仓库信息以及与页面读取一致的 complete / pagesRead / stopReason / nextUrl 语义。节点 ID 直接使用 API 返回值，不自行编码。
 
 `authenticated: true` 必须由调用它的 Node 进程预先提供 `process.env.GITHUB_TOKEN`，只放进 Authorization 请求头；工具不读取 gh、钥匙串、浏览器 cookie 或凭据文件，也不保存 token。ego 的 Node 运行环境不继承 shell 环境变量，浏览器登录不等于 REST 鉴权。缺少 token 时直接报错，不静默改成公开读取。细粒度 token 文档要求 Starring 用户读取权限；可见资源仍取决于 token 权限，私有 Profile 的公开请求可能返回空列表。
 
@@ -106,7 +106,11 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 - `runSiteTool("github-stars", "get_list_repositories", { url, maxItems? })`：读取指定列表仓库，自动翻页。
 - `runSiteTool("github-stars", "get_repository_lists", { url })`：查询一个仓库的全部列表与当前归属。
 - `runSiteTool("github-stars", "edit_list", { url, name?, description?, isPrivate?, confirm })`：编辑现有列表，保留未指定字段；`confirm` 必须为 `true`。
-- `runSiteTool("github-stars", "get_stars_api", { username, sort?, direction?, maxItems?, authenticated? })`：官方 REST 读取，包含精确 starredAt。
+- `runSiteTool("github-stars", "get_stars_api", { username, sort?, direction?, maxItems?, authenticated? })`：官方 REST 读取，包含 GraphQL nodeId 和精确 starredAt。
+- `runSiteTool("github-stars", "get_star_lists_api", {})`：Token GraphQL 全量读取当前账号的列表元信息与成员。
+- `runSiteTool("github-stars", "batch_classify_stars", { assignments, mode?, confirm })`：批量归类已加星仓库，默认追加，显式 replace 替换全部归属。
+- `runSiteTool("github-stars", "merge_star_lists", { sourceListIds, targetListId, confirm })`：追加到现有目标，重读验证后删除源列表。
+- `runSiteTool("github-stars", "cleanup_star_lists", { listIds, coveredByListIds?, confirm })`：仅删除空列表或成员被保留列表覆盖的列表，删除后重读。以上三个 API 写工具的 confirm 必须为 true；节点 ID、部分失败进度和恢复约定见 [批量整理 notes](bulk-lists.md)。
 - `items` 包含 repository / topic 两种 `type`，共有 name、url、description、time；仓库还含 language、stars、forks。
 - `get_stars` 返回 `scope: "all_pages"`，聚合条目按 `item.url` 去重。`itemCount` 是实际返回数；`totalLoaded` 是所有成功读取列表页的唯一条目数，包含已读取但因上限未返回的条目，不代表账号总数。
 - `get_stars` 的 `pagesRead` 是成功读取的列表页数，不计摘要发现页；`complete` 是布尔值，表示已到末页且没有遗漏，上限截断或读取失败时为 `false`。`stopReason` 为 `end`（到达末页）、`max_items`（条目上限）或 `blocked`（读取失败）。从指定中间页开始的完整读取也只覆盖该页至末页。
@@ -148,6 +152,8 @@ await runSiteTool("github-stars", "create_list", {
 
 `extract_stars` 已实测默认摘要、仓库列表、主题和空结果；`siteSkills`、`siteSkillsForUrl`、`learnContext` 已通过实际调用。仓库详情不在提取工具范围内。
 
-Lists 写工具已在真实登录会话验证创建私有列表、单列表和多列表追加、保留已有归属、重复调用 `changed: false`，以及保存后返回仓库页重新读取。新列表的私有状态、描述及仓库内容均通过冷重开核实。公开列表创建与非法输入、服务器拒绝、导航等待分支有 fixture 覆盖；未实际创建公开列表。
+浏览器 Lists 写工具已在真实登录会话验证创建私有列表、单列表和多列表追加、保留已有归属、重复调用 `changed: false`，以及保存后返回仓库页重新读取。新列表的私有状态、描述及仓库内容均通过冷重开核实。公开列表创建与非法输入、服务器拒绝、导航等待分支有 fixture 覆盖；未实际创建公开列表。
 
 扩展能力通过 ego lite 复核：Profile Stars 沿游标读取至末页、跨两页条目上限及私有筛选的空结果、折叠列表总览、列表详情导出、仓库归属查询，以及编辑列表描述、改名后的 slug 变化、公开与私有切换。未指定字段和原有仓库归属均保留；私有状态还通过独立无 Cookie、禁用缓存的请求验证，公开时返回 200、恢复私有后返回 404，不能用登录会话内的 200 判断列表是否公开。重名拒绝及保存失败由合成 fixture 覆盖。
+
+四个 Token API 工具已通过真实 ego lite 调用验证完整快照、跨批追加、精确替换、幂等、多源合并及覆盖校验后的清理。临时私有列表已全部移除，原列表成员和 Star ID、加星时间不变；冷读 Profile 核对通过。部分失败等合成验证边界见 [bulk-lists.md](bulk-lists.md)。

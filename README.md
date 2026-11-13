@@ -15,7 +15,7 @@
 ## 已包含的站点能力
 
 - **微信公众号文章**：标准图文、图片分享型文章，提取标题、公众号、作者、发布时间、正文和图片。
-- **GitHub 我的星**：`get_stars` 支持现代 Stars、Profile 游标分页和列表详情；可读取列表总览、列表仓库及仓库归属，官方 REST 通道可取得精确加星时间。`add_repository_to_lists` 支持同时追加多个列表，`create_list` 创建列表，`edit_list` 编辑列表；三个写工具均要求 `confirm: true` 并验证保存结果。`extract_stars` 保持只读单页提取。
+- **GitHub 我的星**：读取现代 Stars、Profile、列表详情及仓库归属，REST 返回精确 `starredAt` 和 `nodeId`；保留浏览器追加、创建、编辑列表工具。新增 Token API 全量列表快照、批量归类、合并与覆盖校验后清理，所有写工具要求 `confirm: true`。批量操作、失败恢复与验收边界见 [bulk-lists.md](skills/site-skill/assets/learnings/github-stars/notes/bulk-lists.md)。`extract_stars` 保持只读单页提取。
 - **X (Twitter)**：趋势、搜索、帖子详情、Thread、长文 Article、书签/喜欢、评论、用户资料、用户帖子/回复、关注列表；兼容已登录和访客布局。
 
 ## 安装
