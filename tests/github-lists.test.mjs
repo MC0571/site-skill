@@ -173,8 +173,9 @@ const createPage = `<html><body><a href="https://github.com/example?tab=stars">S
   <input name="user_list[name]"><textarea name="user_list[description]"></textarea>
   <input type="hidden" name="user_list[private]" value="0"><input type="checkbox" name="user_list[private]" value="1"></form></body></html>`;
 
-test("creating a private or public list uses native form navigation and verifies a fresh read", async () => {
-  for (const isPrivate of [true, false]) {
+test("creating default-private and explicit private or public lists verifies a fresh read", async () => {
+  for (const requestedPrivate of [undefined, true, false]) {
+    const isPrivate = requestedPrivate ?? true;
     let reads = 0;
     let finishNavigation;
     const url = "https://github.com/stars/example/lists/new";
@@ -197,7 +198,9 @@ test("creating a private or public list uses native form navigation and verifies
       assert.equal(selector, 'button[data-show-dialog-id^="edit-list-dialog-"]');
       finishNavigation();
     };
-    const result = await createList(ctx, { name: " New ", description: "Description", isPrivate, confirm: true });
+    const args = { name: " New ", description: "Description", confirm: true };
+    if (requestedPrivate !== undefined) args.isPrivate = requestedPrivate;
+    const result = await createList(ctx, args);
     assert.deepEqual(result, { ok: true, name: "New", description: "Description", isPrivate, url });
     assert.equal(reads, 1);
   }

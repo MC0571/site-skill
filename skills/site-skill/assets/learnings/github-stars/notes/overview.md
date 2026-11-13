@@ -27,7 +27,7 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 列表排序与仓库排序分开：`user_lists_sort=name|created_at|updated_at`、`user_lists_direction=asc|desc`；默认 updated_at / desc。`get_star_lists` 可传 Profile Stars 完整 URL 保留这些参数；省略 URL 时通过当前账号 `/stars` 的 Profile 链接定位。
 
-列表详情的仓库容器为 `#user-list-repositories`，标题链接是 `h2 a`。当前账号的隐藏编辑表单提供 `user_list[name]`、`user_list[description]` 和 checkbox `user_list[private]`，工具返回 `list.name/description/private`。空列表没有仓库容器，需要 Edit list 控件及真实空提示共同确认；不能把容器缺失直接当作空列表。大列表的真实分页尚未验收；工具沿页面实际 Next 链接读取，游标逻辑由合成 fixture 覆盖。
+列表详情的仓库容器为 `#user-list-repositories`，标题链接是 `h2 a`。当前账号的隐藏编辑表单提供 `user_list[name]`、`user_list[description]` 和 checkbox `user_list[private]`，工具返回 `list.name/description/private`。空列表没有仓库容器，需要 Edit list 控件及真实空提示共同确认；不能把容器缺失直接当作空列表。列表实测每页 30 个仓库，Next / Previous 使用实际的 `page` 参数链接，与 Profile 的 `after` 游标不同；跨两页全量读取、集合无遗漏及 maxItems 页中截断已实测。
 
 ## 筛选、搜索、排序、分页
 
@@ -40,6 +40,8 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 7. `get_stars` 从传入的具体 repositories/topics 页开始，沿真实 `Next` 链接读取至末页，不重置传入的 `page`；`extract_stars` 只返回当前页及 `nextUrl`，不导航。
 
 默认摘要页实测只显示前 10 个仓库，并可混合显示主题；它没有仓库列表的 Next。`get_stars` 从默认 `/stars`（或用户摘要入口）先使用侧栏 All repositories 的真实链接进入完整仓库列表，并保留请求 URL 的 `q/language/sort/direction` 参数；摘要发现页不参与条目聚合或 `pagesRead` 计数。默认读取全部仓库不含主题，显式 topics URL 则从该主题页开始读取。`extract_stars` 仍可从 `collectionLinks` 返回 “See all starred repositories” 入口。侧栏计数和顶部 Profile Stars 计数实测存在差异，不要用它们宣称已完整读取全部收藏。
+
+计数对账已验证：Profile DOM 的每页仓库链接与提取结果逐条一致；统一 owner/repo 大小写后，其完整 URL 集合与公开 REST、鉴权 REST、独立 `/user/starred` 及 GraphQL 完全一致，接口之间的仓库 ID 也一致。现代 Stars 视图还可能保留仓库详情返回 404 或 451 的额外条目；451 条目仍可能在单仓库星标查询中返回 204。404 不能直接解释为删除，451 也不能仅凭状态码解释为 DMCA，需读取实际页面或响应原因。顶部 Stars 展示计数的剩余差额来源尚未证实，不能把它当作可访问仓库总数，或据此推断提取器漏读。
 
 ## 加载与稳定选择器
 
@@ -78,6 +80,8 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 追加归属使用接口返回的 POST 表单、`_method=put`、`list_ids[]` 和 `user_list_menu_dirty=1`。工具保留原有 ID 与目标 ID 的并集，通过原生表单导航提交。该接口可能已保存却返回 406 错误页，因此不能据响应错误直接重试：工具等待提交文档替换，回到正常仓库页后重新 GET，并核实全部原归属和目标归属。
 
+仓库 README 图片实测可能拖慢 load。导航超时但文档已提交、仍为 interactive 时，应保留当前页，等待其完整加载，再 GET 列表归属确认是否已保存；不能把超时当作成功，也不能盲目重复提交。工具继续抛出导航异常，不自动重试写入。
+
 创建列表使用 Profile Stars 页的原生创建表单，POST 到 `/stars/<user>/lists`，字段为 `user_list[name]`、`user_list[description]`、`user_list[private]`。GitHub 会拒绝 fetch 创建提交，工具使用原生表单导航；等待新列表的 Edit list 按钮出现后，再读取新 URL 核对名称、描述和私有状态。空列表尚无 `#user-list-repositories`，不能用仓库容器判断创建是否完成。
 
 `edit_list` 要求现有列表 URL、至少一个 name / description / isPrivate 字段及 `confirm: true`。编辑表单 POST 到当前列表 URL，并携带 `_method=put`；名称必填且最长 32 字符，描述最长 160 字符。工具保留省略的字段，值未变时返回 `changed: false`，改名之前检查重名。提交采用原生导航，待旧文档替换后返回 Profile 查找保存的列表，再冷读详情核对三项元信息；改名可能改变 slug，应使用返回的 url。列表编辑不提交仓库归属字段。
@@ -90,7 +94,7 @@ Profile 的内容根为 `#user-profile-frame`。仓库卡片是包含 `h3 a` 的
 
 `authenticated: true` 必须由调用它的 Node 进程预先提供 `process.env.GITHUB_TOKEN`，只放进 Authorization 请求头；工具不读取 gh、钥匙串、浏览器 cookie 或凭据文件，也不保存 token。ego 的 Node 运行环境不继承 shell 环境变量，浏览器登录不等于 REST 鉴权。缺少 token 时直接报错，不静默改成公开读取。细粒度 token 文档要求 Starring 用户读取权限；可见资源仍取决于 token 权限，私有 Profile 的公开请求可能返回空列表。
 
-结果 `access: public|token_visible` 表示读取通道，`complete: true` 只代表该端点到达末页，不能宣称已取得所有私有收藏。HTTP、JSON 或 Link 错误返回明确 reason 并保留此前条目；网络异常抛出，不自动重试。公开端点及 starred_at 字段已实测，真实 token 鉴权没有执行。
+结果 `access: public|token_visible` 表示读取通道，`complete: true` 只代表该端点到达末页，不能宣称已取得所有私有收藏。HTTP、JSON 或 Link 错误返回明确 reason 并保留此前条目；网络异常抛出，不自动重试。公开端点、真实 Token 鉴权和 `runSiteTool` 调用入口均已实测，返回的仓库及精确 starredAt 与独立 `/user/starred` 分页读取逐条一致。
 
 ## 工具与结果
 
@@ -146,4 +150,4 @@ await runSiteTool("github-stars", "create_list", {
 
 Lists 写工具已在真实登录会话验证创建私有列表、单列表和多列表追加、保留已有归属、重复调用 `changed: false`，以及保存后返回仓库页重新读取。新列表的私有状态、描述及仓库内容均通过冷重开核实。公开列表创建与非法输入、服务器拒绝、导航等待分支有 fixture 覆盖；未实际创建公开列表。
 
-扩展能力通过 ego lite 复核：Profile Stars 沿游标读取至末页、跨两页条目上限及私有筛选的空结果、折叠列表总览、列表详情导出、仓库归属查询，以及编辑新建私有列表描述后的持久化、原私有状态和仓库内容保留。不同 Stars 布局与顶部计数仍存在差异，完整性只表示传入页面通道已到末页。真实改名与私有转公开没有执行，字段保留、改名后 URL、重名拒绝及保存失败由合成 fixture 覆盖。
+扩展能力通过 ego lite 复核：Profile Stars 沿游标读取至末页、跨两页条目上限及私有筛选的空结果、折叠列表总览、列表详情导出、仓库归属查询，以及编辑列表描述、改名后的 slug 变化、公开与私有切换。未指定字段和原有仓库归属均保留；私有状态还通过独立无 Cookie、禁用缓存的请求验证，公开时返回 200、恢复私有后返回 404，不能用登录会话内的 200 判断列表是否公开。重名拒绝及保存失败由合成 fixture 覆盖。
