@@ -74,7 +74,8 @@ export async function getStarsApi(ctx, args = {}) {
     }
     if (!Array.isArray(page) || page.some(entry => !entry?.repo ||
         typeof entry.starred_at !== "string" || typeof entry.repo.full_name !== "string" ||
-        typeof entry.repo.html_url !== "string" || !Number.isSafeInteger(entry.repo.id))) {
+        typeof entry.repo.html_url !== "string" || typeof entry.repo.node_id !== "string" ||
+        !Number.isSafeInteger(entry.repo.id))) {
       return finish({ ok: false, reason: "invalid_response", status: response.status, stopReason: "blocked", nextUrl: currentUrl });
     }
 
@@ -85,6 +86,7 @@ export async function getStarsApi(ctx, args = {}) {
         collected.set(id, {
           type: "repository",
           id,
+          nodeId: repo.node_id,
           name: repo.full_name,
           url: repo.html_url,
           description: repo.description ?? "",

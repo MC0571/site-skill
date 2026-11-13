@@ -7,6 +7,7 @@ function star(id, name, starredAt, overrides = {}) {
     starred_at: starredAt,
     repo: {
       id,
+      node_id: `R_kgDOFixture${id}`,
       full_name: name,
       html_url: `https://github.com/${name}`,
       description: `${name} description`,
@@ -61,12 +62,12 @@ test("REST pagination follows the real Link route and maps star timestamps and d
     access: "public",
     items: [
       {
-        type: "repository", id: 1001, name: "fixture-org/first",
+        type: "repository", id: 1001, nodeId: "R_kgDOFixture1001", name: "fixture-org/first",
         url: "https://github.com/fixture-org/first", description: "fixture-org/first description",
         language: "JavaScript", stars: "1234", forks: "56", starredAt: "2026-11-12T10:11:12Z",
       },
       {
-        type: "repository", id: 1002, name: "fixture-org/second",
+        type: "repository", id: 1002, nodeId: "R_kgDOFixture1002", name: "fixture-org/second",
         url: "https://github.com/fixture-org/second", description: "",
         language: "", stars: "0", forks: "7", starredAt: "2026-11-10T09:08:07Z",
       },
