@@ -1,0 +1,233 @@
+{
+  "id": "github-stars",
+  "name": "GitHub Stars",
+  "domains": [
+    "github.com",
+    "api.github.com"
+  ],
+  "notes": [
+    "notes/overview.md"
+  ],
+  "nodeTools": {
+    "get_stars": {
+      "description": "只读自动翻页读取 GitHub Stars，支持现代 Stars、Profile Stars 和列表详情三种布局，按 item.url 去重；默认入口经 All repositories 读取全部仓库。",
+      "path": "tools/get-stars.js",
+      "callable": "getStars",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": false,
+          "description": "GitHub /stars、/stars/<user>/repositories 或 topics、/<user>?tab=stars、/stars/<user>/lists/<slug> 完整 URL；具体页面从原有 page/after 游标开始，省略读取当前账号全部仓库。"
+        },
+        "maxItems": {
+          "type": "integer",
+          "required": false,
+          "description": "跨页最多返回的唯一条目数，可选正安全整数；省略读取全部，无默认 100 上限。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、url、requestedUrl、scope=all_pages、title、query、filter、language、sort、direction、按 item.url 去重的 items、itemCount（返回数）、totalLoaded（所有成功读取页的唯一条目数）、truncated（是否还有遗漏）、complete、pagesRead（成功列表页数，不计摘要发现页）、stopReason=end|max_items|blocked、emptyMessage、filters、sortOptions、collectionLinks、previousUrl 和 nextUrl。达到条目上限截到页中时 nextUrl 指回当前页，否则指向下一页；页面提取返回失败时 ok=false、complete=false，保留已读 items 并返回明确 reason；导航或运行时异常继续抛出。"
+      }
+    },
+    "add_repository_to_lists": {
+      "description": "通过浏览器现有 GitHub 会话写入当前账号：将一个已加星仓库追加到一个或多个现有列表，保留所有已有列表归属；必须显式传入 confirm: true。",
+      "path": "tools/lists.js",
+      "callable": "addRepositoryToLists",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "已加星仓库的完整 GitHub URL，例如 https://github.com/owner/repo。"
+        },
+        "listNames": {
+          "type": "array",
+          "required": true,
+          "description": "至少包含一个名称的数组，每项必须为非空字符串并解析为一个现有列表；可同时选择多个列表。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "写入确认；必须显式为 true，否则不执行写入。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、repositoryUrl、changed、addedLists、alreadyPresentLists 和 selectedLists；selectedLists 为列表条目数组，每项包含 id 与 name。全部目标已存在时 changed=false 且不写；存在新增归属时所有目标一次写入。"
+      }
+    },
+    "create_list": {
+      "description": "通过浏览器现有 GitHub 会话写入当前账号并创建列表；必须显式传入 confirm: true；不会自动向新列表添加仓库。",
+      "path": "tools/lists.js",
+      "callable": "createList",
+      "args": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "列表名称，长度 1–32；与现有列表重名时报错。"
+        },
+        "description": {
+          "type": "string",
+          "required": false,
+          "description": "列表描述，最长 160 个字符，默认空字符串。"
+        },
+        "isPrivate": {
+          "type": "boolean",
+          "required": false,
+          "description": "是否为私有列表，默认 true。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "写入确认；必须显式为 true，否则不执行写入。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、name、url、isPrivate 和 description。"
+      }
+    },
+    "get_star_lists": {
+      "description": "只读读取 Profile Stars 中全部 DOM 列表卡片，包含折叠的条目；返回名称、URL、描述、仓库数和独立排序参数。",
+      "path": "tools/lists.js",
+      "callable": "getStarLists",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": false,
+          "description": "可选 https://github.com/<user>?tab=stars，允许 user_lists_sort 和 user_lists_direction；省略自动定位当前账号。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、url、scope=all_dom_lists、lists、listCount、sort 和 direction；列表项含 name、url、description、repositoryCount（无法识别为 null）。不从总览猜测私有状态。"
+      }
+    },
+    "get_list_repositories": {
+      "description": "只读自动翻页导出指定 GitHub 列表中的仓库，复用 get_stars 聚合和截断语义。",
+      "path": "tools/get-list-repositories.js",
+      "callable": "getListRepositories",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "https://github.com/stars/<user>/lists/<slug> 完整 URL。"
+        },
+        "maxItems": {
+          "type": "integer",
+          "required": false,
+          "description": "跨页最多返回的唯一条目数，可选正安全整数；省略读取全部，无默认 100 上限。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "与 get_stars 相同的跨页聚合结果，含列表元数据、items、complete、pagesRead、stopReason 和 nextUrl。"
+      }
+    },
+    "get_repository_lists": {
+      "description": "只读查询一个仓库可用的全部列表及当前归属，不改变星标或列表关系。",
+      "path": "tools/lists.js",
+      "callable": "getRepositoryLists",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "已加星仓库的完整 GitHub URL，例如 https://github.com/owner/repo。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、repositoryUrl、lists 和 selectedLists；每项含 id、name、selected，失败包含 reason 和可用的 status，不返回表单或会话字段。"
+      }
+    },
+    "edit_list": {
+      "description": "通过浏览器现有会话编辑当前账号的现有列表，写入前必须 confirm: true；仅更新指定的名称、描述或私有状态，保留未指定字段，保存后重新读取验证。",
+      "path": "tools/lists.js",
+      "callable": "editList",
+      "args": {
+        "url": {
+          "type": "string",
+          "required": true,
+          "description": "https://github.com/stars/<user>/lists/<slug> 完整 URL；改名后应使用返回的新 URL。"
+        },
+        "name": {
+          "type": "string",
+          "required": false,
+          "description": "可选新名称，去首尾空格后为 1–32 字符，不允许与其他列表重名。"
+        },
+        "description": {
+          "type": "string",
+          "required": false,
+          "description": "可选新描述，最多 160 字符；空字符串清空描述。"
+        },
+        "isPrivate": {
+          "type": "boolean",
+          "required": false,
+          "description": "可选私有状态，省略保留当前设置。"
+        },
+        "confirm": {
+          "type": "boolean",
+          "required": true,
+          "description": "写入确认；必须显式为 true，否则不执行写入。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、changed、url、name、description 和 isPrivate；无变更时 changed=false，未验证保存时 ok=false。至少提供一个可编辑字段。"
+      }
+    },
+    "get_stars_api": {
+      "description": "通过 GitHub 官方 REST API 自动翻页读取星标仓库及精确 starredAt；默认公开读取，authenticated=true 显式使用运行进程的 GITHUB_TOKEN，浏览器登录不会提供 REST 鉴权。",
+      "path": "tools/get-stars-api.js",
+      "callable": "getStarsApi",
+      "args": {
+        "username": {
+          "type": "string",
+          "required": true,
+          "description": "GitHub 用户名。"
+        },
+        "sort": {
+          "type": "string",
+          "required": false,
+          "description": "created（加星时间，默认）或 updated（仓库更新时间）。"
+        },
+        "direction": {
+          "type": "string",
+          "required": false,
+          "description": "desc（默认）或 asc。"
+        },
+        "maxItems": {
+          "type": "integer",
+          "required": false,
+          "description": "跨页最多返回的唯一条目数，可选正安全整数；省略读取全部，无默认 100 上限。"
+        },
+        "authenticated": {
+          "type": "boolean",
+          "required": false,
+          "description": "默认 false，公开读取；true 要求 Node 进程已配置 GITHUB_TOKEN，仅通过 Authorization 请求头使用，不读取浏览器凭据。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "包含 ok、scope=all_pages、access=public|token_visible、items、itemCount、totalLoaded、pagesRead、complete、truncated、stopReason、nextUrl；条目含仓库信息、id 和精确 starredAt。到达此接口末页不表示 token 能看到全部私有收藏。HTTP/响应失败明确返回 reason，保留已读条目且不重试；网络异常抛出。"
+      }
+    }
+  },
+  "browserTools": {
+    "extract_stars": {
+      "description": "只读提取当前 GitHub 现代 Stars、Profile Stars 或列表详情页的仓库、主题、筛选和分页链接，不导航。",
+      "path": "browser-tools/extract-stars.js",
+      "args": {
+        "maxItems": {
+          "type": "integer",
+          "required": false,
+          "description": "当前页最多返回的仓库和主题总数，默认 100，范围 1–100。"
+        }
+      },
+      "returns": {
+        "type": "object",
+        "description": "当前页元信息、items、可见 DOM 条目总数 totalLoaded、是否截断 truncated、空结果说明、筛选项和前后页链接；失败时包含 ok=false 和 reason。"
+      }
+    }
+  }
+}
